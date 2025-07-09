@@ -1,10 +1,8 @@
 
-
 import React, { useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { Question } from '../types.ts';
-import { Json } from '../database.types.ts';
-import { CheckCircleIcon, XCircleIcon, PrinterIcon, SaveIcon } from './icons.tsx';
+import { CheckCircleIcon, XCircleIcon, PrinterIcon, SaveIcon, RetryIcon } from './icons.tsx';
 import { supabase } from '../supabaseClient.ts';
 
 interface ResultsViewProps {
@@ -13,9 +11,10 @@ interface ResultsViewProps {
   userAnswers: (string | null)[];
   onRestart: () => void;
   user: User;
+  onReshuffle: (questions: Question[]) => void;
 }
 
-const ResultsView: React.FC<ResultsViewProps> = ({ score, questions, userAnswers, onRestart, user }) => {
+const ResultsView: React.FC<ResultsViewProps> = ({ score, questions, userAnswers, onRestart, user, onReshuffle }) => {
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const totalQuestions = questions.length;
@@ -41,8 +40,8 @@ const ResultsView: React.FC<ResultsViewProps> = ({ score, questions, userAnswers
             user_id: user.id,
             score,
             total_questions: totalQuestions,
-            questions_data: questions as unknown as Json,
-            user_answers_data: userAnswers as unknown as Json,
+            questions_data: questions,
+            user_answers_data: userAnswers,
         }]);
 
         if (error) throw error;
@@ -79,6 +78,13 @@ const ResultsView: React.FC<ResultsViewProps> = ({ score, questions, userAnswers
           className="px-8 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-indigo-500 transition-colors"
         >
           Volver a Empezar
+        </button>
+        <button
+          onClick={() => onReshuffle(questions)}
+          className="px-6 py-3 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-teal-500 transition-colors flex items-center gap-2"
+        >
+          <RetryIcon className="w-5 h-5" />
+          Reintentar
         </button>
         <button
           onClick={handleSave}
