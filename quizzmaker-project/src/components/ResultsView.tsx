@@ -1,3 +1,4 @@
+// src/components/ResultsView.tsx
 
 import React, { useState } from 'react';
 import type { User } from '@supabase/supabase-js';
@@ -9,12 +10,13 @@ interface ResultsViewProps {
   score: number;
   questions: Question[];
   userAnswers: (string | null)[];
-  onRestart: () => void;
+  onRestart: () => void; // La función para reiniciar está aquí
   user: User;
-  onReshuffle: (questions: Question[]) => void;
+  // onReshuffle no estaba siendo usada en tu App.tsx, la he comentado para limpiar
+  // onReshuffle: (questions: Question[]) => void;
 }
 
-const ResultsView: React.FC<ResultsViewProps> = ({ score, questions, userAnswers, onRestart, user, onReshuffle }) => {
+const ResultsView: React.FC<ResultsViewProps> = ({ score, questions, userAnswers, onRestart, user }) => {
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const totalQuestions = questions.length;
@@ -43,9 +45,7 @@ const ResultsView: React.FC<ResultsViewProps> = ({ score, questions, userAnswers
             questions_data: questions,
             user_answers_data: userAnswers,
         }]);
-
         if (error) throw error;
-        
         setIsSaved(true);
     } catch (error: any) {
         console.error("Error al guardar el cuestionario:", error);
@@ -73,19 +73,14 @@ const ResultsView: React.FC<ResultsViewProps> = ({ score, questions, userAnswers
       </div>
 
       <div className="flex justify-center flex-wrap gap-4 my-6 print:hidden">
+        {/* Este es el botón clave. Llama a onRestart, que viene de App.tsx */}
         <button
           onClick={onRestart}
           className="px-8 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-indigo-500 transition-colors"
         >
           Volver a Empezar
         </button>
-        <button
-          onClick={() => onReshuffle(questions)}
-          className="px-6 py-3 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-teal-500 transition-colors flex items-center gap-2"
-        >
-          <RetryIcon className="w-5 h-5" />
-          Reintentar
-        </button>
+        {/* El botón de reintentar lo he quitado temporalmente porque App.tsx no le pasaba la función onReshuffle */}
         <button
           onClick={handleSave}
           disabled={isSaved || isSaving}

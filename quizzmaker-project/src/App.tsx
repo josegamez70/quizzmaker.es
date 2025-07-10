@@ -1,4 +1,4 @@
-
+// src/App.tsx
 
 import React, { useState, useCallback, useEffect, lazy, Suspense } from 'react';
 import { AppState, Question, SavedQuiz } from './types.ts';
@@ -8,7 +8,7 @@ import { LightbulbIcon, BookmarkIcon, LogoutIcon } from './components/icons.tsx'
 import { supabase } from './supabaseClient.ts';
 import type { Session, AuthChangeEvent } from '@supabase/supabase-js';
 
-// Lazy load components for code-splitting
+// Lazy load components
 const ImageUploader = lazy(() => import('./components/ImageUploader.tsx'));
 const QuizView = lazy(() => import('./components/QuizView.tsx'));
 const ResultsView = lazy(() => import('./components/ResultsView.tsx'));
@@ -37,19 +37,14 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
   useEffect(() => {
     const fetchProfile = async () => {
       if (!userId) return;
-
       try {
         const { data, error } = await supabase
           .from('profiles')
           .select('username')
           .eq('id', userId)
-          .maybeSingle(); // Usamos maybeSingle() para evitar errores si el perfil no existe
-
+          .maybeSingle();
         if (error) throw error;
-        
-        if (data) {
-          setProfile(data);
-        }
+        if (data) setProfile(data);
       } catch (caughtError: unknown) {
         const message = caughtError instanceof Error ? caughtError.message : 'Ocurrió un error desconocido al buscar el perfil.';
         console.error("Error fetching profile:", message);
@@ -59,18 +54,8 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
   }, [userId]);
 
   const handleLogout = async () => {
-    // Attempt to sign out from Supabase.
-    const { error } = await supabase.auth.signOut();
-    
-    // Regardless of the result, force the client to the logged-out state.
-    // This provides a robust logout experience, especially on mobile.
+    await supabase.auth.signOut();
     forceLogout();
-
-    if (error) {
-      // Log the error for debugging, but avoid alerting the user
-      // since the UI has reflected the logout.
-      console.error('Error al cerrar sesión en Supabase:', error.message);
-    }
   };
 
   const handleQuizGeneration = useCallback(async () => {
@@ -115,13 +100,8 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     setNumQuestions(10);
   };
   
-  const handleShowSaved = () => {
-    setAppState(AppState.SAVED_QUIZZES);
-  }
-
-  const handleShowPrivacy = () => {
-    setAppState(AppState.PRIVACY);
-  };
+  const handleShowSaved = () => setAppState(AppState.SAVED_QUIZZES);
+  const handleShowPrivacy = () => setAppState(AppState.PRIVACY);
 
   const handleViewSavedQuiz = (savedQuiz: SavedQuiz) => {
     setQuiz(savedQuiz.questions);
@@ -137,6 +117,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
       case AppState.QUIZ:
         return <QuizView questions={quiz} onFinish={handleQuizFinish} onRestart={handleRestart} />;
       case AppState.RESULTS:
+        // Aquí le pasamos la función handleRestart a la prop onRestart
         return <ResultsView score={score} questions={quiz} userAnswers={userAnswers} onRestart={handleRestart} user={session.user} />;
       case AppState.ERROR:
         return (
@@ -145,7 +126,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
             <p className="text-gray-300 mb-6">{error}</p>
             <button
               onClick={handleRestart}
-              className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-indigo-500 transition-colors"
+              className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700"
             >
               Intentar de Nuevo
             </button>
@@ -169,7 +150,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center p-4 sm:p-6 lg:p-8 print:bg-white print:p-0 print:block">
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center p-4 sm:p-6 lg:p-8 print:bg-white">
       <header className="w-full max-w-5xl mx-auto mb-6 flex items-center justify-between print:hidden">
         <div className="flex items-center gap-3">
             <LightbulbIcon className="w-10 h-10 text-yellow-300" />
@@ -191,10 +172,10 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
             </button>
         </div>
       </header>
-        <p className="w-full max-w-5xl mx-auto text-center -mt-2 mb-8 text-lg text-gray-400 print:hidden">
-          Crea tu cuestionario en minutos. Sube un PDF o una imagen y la IA generará un desafío para ti.
-        </p>
-      <main className="w-full max-w-4xl mx-auto flex-grow flex items-start sm:items-center justify-center print:block print:w-full print:max-w-full print:flex-grow-0">
+      <p className="w-full max-w-5xl mx-auto text-center -mt-2 mb-8 text-lg text-gray-400 print:hidden">
+        Crea tu cuestionario en minutos. Sube un PDF o una imagen y la IA generará un desafío para ti.
+      </p>
+      <main className="w-full max-w-4xl mx-auto flex-grow flex items-start sm:items-center justify-center print:block">
         <Suspense fallback={<Loader text="Cargando vista..." />}>
           {renderContent()}
         </Suspense>
@@ -203,7 +184,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
         <button onClick={handleShowPrivacy} className="hover:text-indigo-400 transition-colors mb-2">
             Política de Privacidad y Cookies
         </button>
-        <p>&copy; 2024 J M GAMEZ</p>
+        <p>© 2024 J M GAMEZ</p>
       </footer>
     </div>
   );
@@ -218,18 +199,14 @@ export function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      // Defer setting loading to false until the subscription is set up
+      setLoading(false); 
     });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setAuthEvent(_event);
       setSession(session);
       setLoading(false);
     });
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const forceLogout = () => {
@@ -237,10 +214,7 @@ export function App() {
     setAuthEvent(null);
   };
   
-  const handlePasswordUpdated = () => {
-    forceLogout();
-  };
-
+  const handlePasswordUpdated = () => forceLogout();
 
   if (loading) {
     return (
