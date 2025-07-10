@@ -1,14 +1,35 @@
 
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { supabase } from '../supabaseClient.ts';
-import { LightbulbIcon, EyeIcon, EyeOffIcon, MailIcon, XCircleIcon } from './icons.tsx';
+import { LightbulbIcon, EyeIcon, EyeOffIcon, MailIcon, XCircleIcon, InformationCircleIcon } from './icons.tsx';
+import Loader from './Loader.tsx';
+
+const PrivacyPolicyView = lazy(() => import('./PrivacyPolicyView.tsx'));
 
 const isRateLimitError = (error: any): boolean => {
     if (error?.status === 429) return true;
     if (typeof error?.message === 'string' && error.message.toLowerCase().includes('rate limit exceeded')) return true;
     return false;
 }
+
+const ConfigHelp = () => (
+    <div className="bg-yellow-900/50 border border-yellow-500/30 p-4 rounded-md text-sm text-yellow-200 space-y-2 mt-4">
+      <p className="font-bold flex items-center gap-2"><InformationCircleIcon className="w-5 h-5"/> Guía de Configuración de Email</p>
+      <p>
+        Los problemas con el envío de correos (confirmación, reseteo de clave) casi siempre se deben a una configuración incorrecta en tu panel de Supabase.
+      </p>
+      <ol className="list-decimal list-inside space-y-1 pl-2 font-mono text-xs bg-gray-900/30 p-3 rounded-lg">
+        <li>Ve a: <code className="text-yellow-300">https://supabase.com/dashboard</code></li>
+        <li>Selecciona tu proyecto.</li>
+        <li>Navega a: <code className="text-yellow-300">Authentication</code> &rarr; <code className="text-yellow-300">URL Configuration</code>.</li>
+        <li className="font-sans text-yellow-200">En <strong>Site URL</strong>, introduce la URL <strong>exacta</strong> de tu aplicación online (ej: <code className="text-yellow-300">https://tu-sitio.piensasolutions.com</code>).</li>
+        <li>Haz clic en <strong>Save</strong>.</li>
+      </ol>
+      <p>
+        Esta URL es crucial para que Supabase genere los enlaces correctos. <strong>No debe ser <code>localhost</code></strong> si tu app está en producción.
+      </p>
+    </div>
+  );
 
 export const AuthView: React.FC = () => {
   const [view, setView] = useState<'login' | 'signup' | 'reset'>('login');
@@ -21,6 +42,8 @@ export const AuthView: React.FC = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [showResend, setShowResend] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [showConfigHelp, setShowConfigHelp] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   useEffect(() => {
     if (cooldown > 0) {
@@ -39,6 +62,7 @@ export const AuthView: React.FC = () => {
     setShowResend(false);
     setShowPassword(false);
     setCooldown(0);
+    setShowConfigHelp(false);
   };
 
   const handleResendConfirmation = async () => {
@@ -49,6 +73,8 @@ export const AuthView: React.FC = () => {
     setLoading(true);
     setError(null);
     setMessage(null);
+    setShowConfigHelp(false);
+
     try {
       const { error } = await supabase.auth.resend({
         type: 'signup',
@@ -63,7 +89,8 @@ export const AuthView: React.FC = () => {
           errorMessage = 'Límite de reenvío de correos excedido. Por favor, espera a que el contador finalice.';
           startCooldown(60);
       } else {
-          errorMessage = 'No se pudo enviar el correo. Asegúrate de que tu "Site URL" esté configurada correctamente en tu panel de Supabase (Authentication -> URL Configuration).';
+          errorMessage = 'No se pudo enviar el correo. Por favor, revisa la guía de configuración.';
+          setShowConfigHelp(true);
       }
       setError(errorMessage);
       setShowResend(true); 
@@ -120,7 +147,8 @@ export const AuthView: React.FC = () => {
       } else if (errorMessage.includes('User already registered')) {
         errorMessage = 'Ya existe un usuario registrado con este email.';
       } else if (errorMessage.includes('Error sending confirmation email')) {
-        errorMessage = 'No se pudo enviar el correo de confirmación. Asegúrate de que tu "Site URL" esté configurada correctamente en tu panel de Supabase (Authentication -> URL Configuration).';
+        errorMessage = 'No se pudo enviar el correo de confirmación. Por favor, revisa la guía de configuración.';
+        setShowConfigHelp(true);
       } else if (errorMessage.includes('Invalid login credentials')) {
         errorMessage = 'Credenciales de inicio de sesión inválidas. Revisa tu email y contraseña.';
       }
@@ -147,7 +175,8 @@ export const AuthView: React.FC = () => {
             errorMessage = 'Se ha alcanzado el límite de envío de correos. Por favor, espera a que el contador finalice para volver a intentarlo.';
             startCooldown(60);
         } else {
-            errorMessage = 'No se pudo enviar el correo. Asegúrate de que tu "Site URL" esté configurada correctamente en tu panel de Supabase (Authentication -> URL Configuration) y vuelve a intentarlo.';
+            errorMessage = 'No se pudo enviar el correo. Por favor, revisa la guía de configuración.';
+            setShowConfigHelp(true);
         }
         setError(errorMessage);
     } finally {
@@ -195,6 +224,7 @@ export const AuthView: React.FC = () => {
                 placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)}
               />
             </div>
+            { showConfigHelp && <ConfigHelp />}
             { (message || error) && alertBox}
             <div>
               <button
@@ -269,6 +299,7 @@ export const AuthView: React.FC = () => {
                   </div>
               )}
 
+              { showConfigHelp && <ConfigHelp />}
               { (error || message) && alertBox }
 
               {showResend && (
@@ -311,12 +342,21 @@ export const AuthView: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md p-8 space-y-6 bg-gray-800 rounded-2xl shadow-2xl">
-          {renderContent()}
-          <footer className="text-center text-gray-500 text-sm pt-2">
-              <p>&copy; 2024 J M GAMEZ</p>
-          </footer>
-      </div>
+      <Suspense fallback={<Loader text="Cargando..." />}>
+        {showPrivacy ? (
+          <PrivacyPolicyView onGoBack={() => setShowPrivacy(false)} />
+        ) : (
+          <div className="w-full max-w-md p-8 space-y-6 bg-gray-800 rounded-2xl shadow-2xl">
+              {renderContent()}
+              <footer className="text-center text-gray-500 text-sm pt-2">
+                  <button onClick={() => setShowPrivacy(true)} className="hover:text-indigo-400 transition-colors mb-2">
+                    Política de Privacidad y Cookies
+                  </button>
+                  <p>&copy; 2024 J M GAMEZ</p>
+              </footer>
+          </div>
+        )}
+      </Suspense>
     </div>
   );
 };

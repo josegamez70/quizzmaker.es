@@ -6,6 +6,7 @@ export enum AppState {
   RESULTS,
   ERROR,
   SAVED_QUIZZES,
+  PRIVACY,
 }
 
 export interface Question {

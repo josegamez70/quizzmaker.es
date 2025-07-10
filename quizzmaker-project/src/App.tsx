@@ -1,9 +1,10 @@
 
+
 import React, { useState, useCallback, useEffect, lazy, Suspense } from 'react';
 import { AppState, Question, SavedQuiz } from './types.ts';
 import { generateQuizFromImageAndText } from './services/geminiService.ts';
 import Loader from './components/Loader.tsx';
-import { LightbulbIcon, BookmarkIcon, LogoutIcon, RetryIcon } from './components/icons.tsx';
+import { LightbulbIcon, BookmarkIcon, LogoutIcon } from './components/icons.tsx';
 import { supabase } from './supabaseClient.ts';
 import type { Session, AuthChangeEvent } from '@supabase/supabase-js';
 
@@ -14,22 +15,13 @@ const ResultsView = lazy(() => import('./components/ResultsView.tsx'));
 const SavedQuizzesView = lazy(() => import('./components/SavedQuizzesView.tsx'));
 const AuthView = lazy(() => import('./components/LoginView.tsx').then(module => ({ default: module.AuthView })));
 const UpdatePasswordView = lazy(() => import('./components/UpdatePasswordView.tsx'));
+const PrivacyPolicyView = lazy(() => import('./components/PrivacyPolicyView.tsx'));
 
 
 interface MainAppProps {
   session: Session;
   forceLogout: () => void;
 }
-
-const shuffleArray = <T,>(array: T[]): T[] => {
-  const newArr = [...array];
-  for (let i = newArr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
-  }
-  return newArr;
-};
-
 
 const MainApp = ({ session, forceLogout }: MainAppProps) => {
   const [appState, setAppState] = useState<AppState>(AppState.IDLE);
@@ -127,24 +119,16 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     setAppState(AppState.SAVED_QUIZZES);
   }
 
+  const handleShowPrivacy = () => {
+    setAppState(AppState.PRIVACY);
+  };
+
   const handleViewSavedQuiz = (savedQuiz: SavedQuiz) => {
     setQuiz(savedQuiz.questions);
     setScore(savedQuiz.score);
     setUserAnswers(savedQuiz.userAnswers);
     setAppState(AppState.RESULTS);
   };
-
-  const handleReshuffle = useCallback((questionsToReshuffle: Question[]) => {
-    const shuffledQuestions = shuffleArray(questionsToReshuffle).map(q => ({
-      ...q,
-      options: shuffleArray(q.options),
-    }));
-
-    setQuiz(shuffledQuestions);
-    setUserAnswers(Array(shuffledQuestions.length).fill(null));
-    setScore(0);
-    setAppState(AppState.QUIZ);
-  }, []);
 
   const renderContent = () => {
     switch (appState) {
@@ -153,7 +137,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
       case AppState.QUIZ:
         return <QuizView questions={quiz} onFinish={handleQuizFinish} onRestart={handleRestart} />;
       case AppState.RESULTS:
-        return <ResultsView score={score} questions={quiz} userAnswers={userAnswers} onRestart={handleRestart} user={session.user} onReshuffle={handleReshuffle} />;
+        return <ResultsView score={score} questions={quiz} userAnswers={userAnswers} onRestart={handleRestart} user={session.user} />;
       case AppState.ERROR:
         return (
           <div className="text-center p-8 bg-gray-800 rounded-lg shadow-lg">
@@ -169,6 +153,8 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
         );
       case AppState.SAVED_QUIZZES:
         return <SavedQuizzesView onViewQuiz={handleViewSavedQuiz} onGoHome={handleRestart} />
+      case AppState.PRIVACY:
+        return <PrivacyPolicyView onGoBack={handleRestart} />;
       case AppState.IDLE:
       default:
         return (
@@ -214,6 +200,9 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
         </Suspense>
       </main>
       <footer className="w-full max-w-4xl mx-auto mt-6 pt-4 text-center text-gray-500 text-sm border-t border-gray-700/50 print:hidden">
+        <button onClick={handleShowPrivacy} className="hover:text-indigo-400 transition-colors mb-2">
+            Política de Privacidad y Cookies
+        </button>
         <p>&copy; 2024 J M GAMEZ</p>
       </footer>
     </div>
