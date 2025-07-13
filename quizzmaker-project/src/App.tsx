@@ -8,8 +8,17 @@ import { LightbulbIcon, BookmarkIcon, LogoutIcon } from './components/icons.tsx'
 import { supabase } from './supabaseClient.ts';
 import type { Session, AuthChangeEvent } from '@supabase/supabase-js';
 
-// --- CAMBIO CLAVE PARA DEPURACIÓN ---
-// AuthView ahora se importa de forma normal para ver si es la causa del fallo en el build.
+// --- Función auxiliar para barajar las preguntas ---
+const shuffleArray = (array: Question[]): Question[] => {
+  const newArray = [...array];
+  for (let i = newArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+  }
+  return newArray;
+};
+
+// Importación normal de AuthView para asegurar el build
 import { AuthView } from './components/LoginView.tsx';
 
 // El resto de componentes siguen con lazy loading.
@@ -19,7 +28,6 @@ const ResultsView = lazy(() => import('./components/ResultsView.tsx'));
 const SavedQuizzesView = lazy(() => import('./components/SavedQuizzesView.tsx'));
 const UpdatePasswordView = lazy(() => import('./components/UpdatePasswordView.tsx'));
 const PrivacyPolicyView = lazy(() => import('./components/PrivacyPolicyView.tsx'));
-
 
 interface MainAppProps {
   session: Session;
@@ -79,7 +87,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
         setAppState(AppState.GENERATING);
         const questions = await generateQuizFromImageAndText(files, numQuestions);
         if (questions && questions.length > 0) {
-          setQuiz(questions);
+          setQuiz(shuffleArray(questions));
           setUserAnswers(Array(questions.length).fill(null));
           setScore(0);
           setAppState(AppState.QUIZ);
@@ -113,6 +121,15 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     setNumQuestions(10);
   };
   
+  const handleReshuffle = () => {
+    if (quiz.length > 0) {
+      setQuiz(shuffleArray(quiz));
+      setUserAnswers(Array(quiz.length).fill(null));
+      setScore(0);
+      setAppState(AppState.QUIZ);
+    }
+  };
+  
   const handleShowSaved = () => setAppState(AppState.SAVED_QUIZZES);
   const handleShowPrivacy = () => setAppState(AppState.PRIVACY);
 
@@ -127,7 +144,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     switch (appState) {
       case AppState.GENERATING: return <Loader text="Generando tu cuestionario..." />;
       case AppState.QUIZ: return <QuizView questions={quiz} onFinish={handleQuizFinish} onRestart={handleRestart} />;
-      case AppState.RESULTS: return <ResultsView score={score} questions={quiz} userAnswers={userAnswers} onRestart={handleRestart} user={session.user} />;
+      case AppState.RESULTS: return <ResultsView score={score} questions={quiz} userAnswers={userAnswers} onRestart={handleRestart} onReshuffle={handleReshuffle} user={session.user} />;
       case AppState.ERROR: return (<div className="text-center p-8 bg-gray-800 rounded-lg"><h2 className="text-2xl font-bold text-red-500 mb-4">¡Oops! Algo salió mal</h2><p className="text-gray-300 mb-6">{error}</p><button onClick={handleRestart} className="px-6 py-2 bg-indigo-600">Intentar de Nuevo</button></div>);
       case AppState.LIMIT_REACHED: return (<div className="text-center p-8 bg-gray-800 rounded-2xl shadow-2xl"><h2 className="text-3xl font-bold text-yellow-400 mb-4">Límite Alcanzado</h2><p className="text-gray-300 text-lg mb-6">Has utilizado tus 5 intentos gratuitos.</p><p className="text-gray-400 mb-8">Próximamente podrás ser Pro para uso ilimitado.</p><button onClick={handleLogout} className="px-6 py-2 bg-indigo-600">Cerrar Sesión</button></div>);
       case AppState.SAVED_QUIZZES: return <SavedQuizzesView onViewQuiz={handleViewSavedQuiz} onGoHome={handleRestart} />;
@@ -174,8 +191,6 @@ export function App() {
       ) : session ? (
         <MainApp session={session} forceLogout={forceLogout} />
       ) : (
-        // El componente AuthView ya no necesita estar envuelto en Suspense
-        // porque se importa de forma normal y síncrona.
         <AuthView />
       )}
     </Suspense>
