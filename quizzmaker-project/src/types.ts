@@ -1,3 +1,4 @@
+// src/types.ts
 
 export enum AppState {
   IDLE,
@@ -7,19 +8,7 @@ export enum AppState {
   ERROR,
   SAVED_QUIZZES,
   PRIVACY,
+  LIMIT_REACHED, // <-- AÑADE ESTA LÍNEA
 }
 
-export interface Question {
-  question: string;
-  options: string[];
-  answer: string;
-}
-
-export interface SavedQuiz {
-  id: string;
-  date: string;
-  score: number;
-  totalQuestions: number;
-  questions: Question[];
-  userAnswers: (string | null)[];
-}
+// ... el resto de tus tipos (Question, SavedQuiz, etc.) sigue igual
