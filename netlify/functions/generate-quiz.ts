@@ -1,9 +1,44 @@
 // netlify/functions/generate-quiz.ts
 
-import type { Handler } from '@netlify/functions';
+import type { Handler, HandlerEvent } from '@netlify/functions';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import busboy from 'busboy';
 
 const API_KEY = process.env.VITE_API_KEY;
+
+// Función para parsear el cuerpo de la petición multipart/form-data
+function parseMultipartForm(event: HandlerEvent): Promise<{ files: { fileBuffer: Buffer; mimeType: string }[], fields: { [key: string]: string } }> {
+  return new Promise((resolve, reject) => {
+    const bb = busboy({ headers: event.headers });
+    const files: { fileBuffer: Buffer; mimeType: string }[] = [];
+    const fields: { [key: string]: string } = {};
+
+    bb.on('file', (fieldname, file, info) => {
+      const { mimeType } = info;
+      const chunks: Buffer[] = [];
+      file.on('data', (chunk) => chunks.push(chunk));
+      file.on('end', () => {
+        files.push({ fileBuffer: Buffer.concat(chunks), mimeType });
+      });
+    });
+
+    bb.on('field', (fieldname, val) => {
+      fields[fieldname] = val;
+    });
+
+    bb.on('close', () => {
+      resolve({ files, fields });
+    });
+    
+    bb.on('error', (err: Error) => {
+      reject(new Error(`Error parsing form: ${err.message}`));
+    });
+
+    // Node.js en Netlify Functions espera el body como base64 si isBase64Encoded es true
+    const bodyBuffer = Buffer.from(event.body || '', event.isBase64Encoded ? 'base64' : 'binary');
+    bb.end(bodyBuffer);
+  });
+}
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -15,17 +50,18 @@ export const handler: Handler = async (event) => {
   }
 
   try {
-    const { files, numQuestions } = JSON.parse(event.body || '{}');
+    const { files, fields } = await parseMultipartForm(event);
+    const numQuestions = parseInt(fields.numQuestions || '10', 10);
 
-    if (!files || !Array.isArray(files) || files.length === 0 || !numQuestions) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Faltan datos en la petición.' }) };
+    if (files.length === 0) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'No se ha subido ningún archivo.' }) };
     }
 
     const genAI = new GoogleGenerativeAI(API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
     const fileParts = files.map(file => ({
-      inlineData: { data: file.base64Data, mimeType: file.mimeType },
+      inlineData: { data: file.fileBuffer.toString('base64'), mimeType: file.mimeType },
     }));
 
     const prompt = `
@@ -50,7 +86,6 @@ export const handler: Handler = async (event) => {
       cleanedText = cleanedText.substring(7, cleanedText.length - 3).trim();
     }
     
-    // Devolvemos el JSON limpio directamente al frontend
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
