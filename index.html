@@ -2,21 +2,12 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Quizz Maker</title>
-    
-    <!--
-      PASO CLAVE:
-      Cargamos la librería de Google AI directamente desde la red (CDN).
-      Esto permite que nuestro `vite.config.ts` la trate como "externa"
-      y evita los errores de build en Netlify.
-    -->
     <script type="module" src="https://esm.run/@google/generative-ai"></script>
-
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="./src/main.tsx"></script> 
   </body>
 </html>
