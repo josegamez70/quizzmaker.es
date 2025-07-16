@@ -1,25 +1,7 @@
 # netlify.toml
 
-# Configuración del proceso de construcción
-[build]
-  # El comando que debe ejecutar Netlify para construir el frontend.
-  command = "npm run build"
-  
-  # La carpeta que debe publicar después de que el build termine.
-  publish = "dist"
+# NO hay sección [build]. Esto le dice a Netlify que no haga nada.
 
-# Configuración de las funciones de backend
-[functions]
-  # La carpeta donde Netlify encontrará nuestras funciones.
-  directory = "netlify/functions"
-  # Le decimos a Netlify que incluya la carpeta node_modules en las funciones
-  # para que encuentre '@google/generative-ai' y 'busboy'.
-  node_bundler = "esbuild"
-  external_node_modules = ["@google/generative-ai", "busboy"]
-
-
-# Configuración para que el router de React funcione correctamente.
-# Cualquier petición que no sea un archivo se redirige al index.html.
 [[redirects]]
   from = "/*"
   to = "/index.html"
