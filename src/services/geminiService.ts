@@ -6,7 +6,6 @@ import {
   HarmCategory,
   HarmBlockThreshold,
 } from '@google/generative-ai';
-
 import type { Question } from '../types';
 
 // 1. Leemos la clave de API desde las variables de entorno.
@@ -14,7 +13,7 @@ const API_KEY = import.meta.env.VITE_API_KEY;
 
 // 2. Comprobamos que la clave existe.
 if (!API_KEY) {
-  throw new Error('La clave de API no está configurada. Por favor, asegúrate de que la variable de entorno VITE_API_KEY esté establecida.');
+  throw new Error('La clave de API no está configurada. Revisa tu archivo .env o las variables de entorno de Netlify.');
 }
 
 // 3. Inicializamos el cliente de Google AI con nuestra clave.
@@ -49,20 +48,17 @@ async function fileToGenerativePart(file: File) {
   };
 }
 
-// 7. La función principal que exportamos y usamos en App.tsx.
+// 7. La función principal que se comunica con la IA.
 export async function generateQuizFromImageAndText(files: File[], numQuestions: number): Promise<Question[]> {
   try {
-    // Obtenemos el modelo correcto
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash-latest",
+        model: "gemini-1.5-flash-latest", // El modelo más reciente y estable
         generationConfig,
         safetySettings
     });
 
-    // Convertimos los archivos
     const fileParts = await Promise.all(files.map(fileToGenerativePart));
 
-    // Creamos el prompt (las instrucciones para la IA)
     const prompt = `
       Analiza la siguiente imagen o documento. Genera un cuestionario de ${numQuestions} preguntas de opción múltiple con 4 opciones (A, B, C, D) basadas en el contenido.
       Formatea la salida estrictamente como un array de objetos JSON, sin ninguna otra explicación o texto introductorio. Cada objeto debe tener los siguientes campos: "question" (string), "options" (array de 4 strings), y "answer" (string que coincida exactamente con una de las opciones).
@@ -76,24 +72,20 @@ export async function generateQuizFromImageAndText(files: File[], numQuestions: 
       ]
     `;
 
-    // Hacemos la llamada a la IA
     const result = await model.generateContent([prompt, ...fileParts]);
     const response = result.response;
     const text = response.text();
 
-    // Limpiamos la respuesta para asegurarnos de que es un JSON válido
     let cleanedText = text.trim();
     if (cleanedText.startsWith('```json')) {
       cleanedText = cleanedText.substring(7, cleanedText.length - 3).trim();
     }
-
-    // Convertimos el texto JSON a un objeto de JavaScript y lo devolvemos
+    
     const questions = JSON.parse(cleanedText);
     return questions;
 
   } catch (error) {
-    console.error("Error en generateQuizFromImageAndText:", error);
-    // Devolvemos un error más genérico al usuario para no exponer detalles técnicos
-    throw new Error("No se pudo comunicar con la IA. Por favor, verifica tu clave de API e inténtalo de nuevo más tarde.");
+    console.error("Error completo de Gemini:", error);
+    throw new Error("No se pudo comunicar con la IA. Por favor, verifica que tu clave de API sea correcta y que el modelo 'gemini-1.5-flash-latest' esté disponible.");
   }
 }
