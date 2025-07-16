@@ -8,7 +8,7 @@ import {
 } from '@google/generative-ai';
 import type { Question } from '../types';
 
-// 1. Leemos la clave de API desde las variables de entorno.
+// 1. Leemos la clave de API.
 const API_KEY = import.meta.env.VITE_API_KEY;
 
 // 2. Comprobamos que la clave existe.
@@ -52,7 +52,7 @@ async function fileToGenerativePart(file: File) {
 export async function generateQuizFromImageAndText(files: File[], numQuestions: number): Promise<Question[]> {
   try {
     const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash-latest", // El modelo más reciente y estable
+        model: "gemini-1.5-flash-latest", // Usamos el modelo más reciente y estable
         generationConfig,
         safetySettings
     });
