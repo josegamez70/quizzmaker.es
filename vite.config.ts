@@ -7,14 +7,13 @@ export default defineConfig({
   build: {
     rollupOptions: {
       // Esta es la lista COMPLETA de módulos que Rollup debe tratar como 'externos'.
-      // Ahora incluye 'react', 'react/jsx-runtime', 'react-dom/client', 
-      // '@supabase/supabase-js' y '@google/generative-ai'.
+      // Hemos quitado '@google/generative-ai' de esta lista para que sea empaquetado.
       external: [
         'react', 
         'react/jsx-runtime', 
         'react-dom/client', 
-        '@supabase/supabase-js',
-        '@google/generative-ai' // <-- ¡NUEVA LÍNEA AÑADIDA!
+        '@supabase/supabase-js' 
+        // ¡QUITAMOS: '@google/generative-ai' de aquí!
       ], 
     },
   },
