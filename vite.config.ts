@@ -6,9 +6,9 @@ export default defineConfig({
   plugins: [react()],
   build: {
     rollupOptions: {
-      // Esta es la lista completa de módulos que Rollup debe tratar como 'externos'.
-      // Incluye 'react', 'react/jsx-runtime' y ahora 'react-dom/client'.
-      external: ['react', 'react/jsx-runtime', 'react-dom/client'], 
+      // Esta es la lista COMPLETA de módulos que Rollup debe tratar como 'externos'.
+      // Ahora incluye 'react', 'react/jsx-runtime', 'react-dom/client' y '@supabase/supabase-js'.
+      external: ['react', 'react/jsx-runtime', 'react-dom/client', '@supabase/supabase-js'], 
     },
   },
 });
