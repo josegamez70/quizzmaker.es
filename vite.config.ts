@@ -6,9 +6,9 @@ export default defineConfig({
   plugins: [react()],
   build: {
     rollupOptions: {
-      // Ahora, 'external' incluye ambos módulos: 'react' y 'react/jsx-runtime'.
-      // Esto soluciona ambos errores de resolución.
-      external: ['react', 'react/jsx-runtime'], 
+      // Esta es la lista completa de módulos que Rollup debe tratar como 'externos'.
+      // Incluye 'react', 'react/jsx-runtime' y ahora 'react-dom/client'.
+      external: ['react', 'react/jsx-runtime', 'react-dom/client'], 
     },
   },
 });
