@@ -1,0 +1,25 @@
+# netlify.toml - Configuración para Netlify
+# Asegura que Netlify sepa cómo construir tu proyecto y dónde encontrar los resultados.
+
+[build]
+  # EL COMANDO DE CONSTRUCCIÓN: Le dice a Netlify que ejecute "npm run build".
+  # Esto creará la carpeta "dist".
+  command = "npm run build"
+
+  # EL DIRECTORIO DE PUBLICACIÓN: Le dice a Netlify dónde encontrar el sitio web ya construido.
+  # Para proyectos Vite, siempre es la carpeta "dist".
+  publish = "dist"
+
+  # EL DIRECTORIO DE FUNCIONES: Donde están tus Netlify Functions.
+  functions = "netlify/functions"
+
+  # LA VERSIÓN DE NODE.JS: Asegura que Netlify use Node.js v20 o superior.
+  # Esto resolverá la advertencia EBADENGINE.
+  environment = { NODE_VERSION = "20" } 
+
+# REDIRECCIONES PARA SPA (Single Page Application):
+# Esencial para que las rutas de tu aplicación funcionen al recargar o al acceder directamente.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
