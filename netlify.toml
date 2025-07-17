@@ -1,8 +1,25 @@
-# netlify.toml
+# --- Configuración de Build para Producción ---
+# Esta sección le dice a Netlify cómo construir tu sitio para subirlo a internet.
+[build]
+  # El comando que Netlify debe ejecutar para construir el proyecto.
+  # Para proyectos con Vite, es "npm run build".
+  command = "npm run build"
 
-# NO hay sección [build]. Esto le dice a Netlify que no haga nada.
+  # El directorio donde se guarda el sitio web ya construido. ¡ESTA ES LA LÍNEA CLAVE!
+  # Para proyectos con Vite, el resultado siempre está en la carpeta "dist".
+  publish = "dist"
 
+  # El directorio donde están tus funciones de servidor (backend).
+  functions = "netlify/functions"
+
+# --- Configuración para Single Page Application (SPA) ---
+# Esta regla es ESENCIAL para que las rutas de tu aplicación funcionen correctamente.
+# Sin esto, si recargas una página como "quizzmaker.es/resultados", daría un error 404.
 [[redirects]]
+  # Captura cualquier ruta que no sea un archivo real (como una imagen o un CSS).
   from = "/*"
+  # Y en su lugar, sirve el archivo principal de tu aplicación (el "index.html").
+  # El JavaScript de tu app se encargará de mostrar la página correcta.
   to = "/index.html"
+  # Con un código de estado 200 (OK), para que la URL no cambie en el navegador.
   status = 200
