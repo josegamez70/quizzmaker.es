@@ -1,14 +1,112 @@
-// src/services/geminiService.ts
-import type { Question } from '../types';
+import { GoogleGenerativeAI, GenerateContentResult } from "@google/generative-ai";
+import { Question } from '../types.ts';
 
-const { GoogleGenerativeAI } = (window as any).google.generativeai;
-const API_KEY = import.meta.env.VITE_API_KEY;
+// --- No hay cambios en esta sección ---
+const apiKey = import.meta.env.VITE_API_KEY;
 
-if (!API_KEY) throw new Error('API Key no configurada.');
-if (!GoogleGenerativeAI) throw new Error('Librería de Google AI no cargada.');
+if (!apiKey) {
+    throw new Error("La clave de API no está configurada. Por favor, asegúrate de que la variable de entorno VITE_API_KEY esté establecida en tu archivo .env.");
+}
 
-const genAI = new GoogleGenerativeAI(API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+const genAI = new GoogleGenerativeAI(apiKey);
 
-// ... (El resto de la función generateQuizFromImageAndText y fileToGenerativePart son las mismas que te pasé antes)
-// ...
+const fileToGenerativePart = async (file: File) => {
+  const base64EncodedDataPromise = new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+    reader.readAsDataURL(file);
+  });
+  return {
+    inlineData: { data: await base64EncodedDataPromise, mimeType: file.type },
+  };
+};
+// --- Fin de la sección sin cambios ---
+
+/**
+ * Detects the dominant language from the provided files.
+ * @param files The files to analyze.
+ * @returns The detected language name in English (e.g., "Spanish"). Defaults to "Spanish" on error.
+ */
+const detectLanguage = async (files: File[]): Promise<string> => {
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" }); // <-- CAMBIO 1: Modelo actualizado
+
+    const fileParts = await Promise.all(
+        files.map(fileToGenerativePart)
+    );
+
+    const prompt = `Analyze the language of the text in the provided file(s). Respond with only the name of the language in English. For example: "Spanish", "English", "French". If multiple languages are present, identify the dominant one.`;
+
+    try {
+        const result: GenerateContentResult = await model.generateContent([prompt, ...fileParts]);
+        const response = result.response;
+        const language = response.text().trim();
+
+        if (!language) {
+            console.warn("La detección de idioma no devolvió resultados. Se usará español por defecto.");
+            return "Spanish";
+        }
+        console.log(`Idioma detectado: ${language}`);
+        return language;
+    } catch (error) {
+        console.error("Error durante la detección de idioma:", error);
+        console.warn("Se usará español por defecto debido a un error en la detección.");
+        return "Spanish"; // Default on error
+    }
+};
+
+export const generateQuizFromImageAndText = async (files: File[], numQuestions: number): Promise<Question[]> => {
+  const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash-latest", // <-- CAMBIO 2: Modelo actualizado
+      generationConfig: {
+          responseMimeType: "application/json",
+          temperature: 0.5,
+      }
+  });
+
+  const detectedLanguage = await detectLanguage(files);
+  
+  const fileParts = await Promise.all(
+    files.map(fileToGenerativePart)
+  );
+
+  const prompt = `You are an expert AI assistant specializing in creating educational quizzes from content.
+Your task is to analyze the provided files and generate a multiple-choice quiz with ${numQuestions} questions in the following language: ${detectedLanguage}.
+Each question, all its options, and the correct answer must be written entirely in ${detectedLanguage}.
+
+IMPORTANT: Your response must be EXCLUSIVELY a valid JSON object, with no other text, explanations, or markdown.
+The JSON must strictly adhere to the RFC 8259 standard. NO trailing commas are allowed.
+The JSON object must have a single key "questions", which contains an array of question objects.
+
+The format for each object in the "questions" array must be:
+{
+  "question": "The text of the question in ${detectedLanguage}. Any double quotes within the text must be properly escaped (e.g., \\"some text\\").",
+  "options": ["Option A in ${detectedLanguage}", "Option B in ${detectedLanguage}", "Option C in ${detectedLanguage}", "Option D in ${detectedLanguage}"],
+  "answer": "The text of the correct answer in ${detectedLanguage}, which must exactly match one of the options."
+}`;
+
+  try {
+    const result: GenerateContentResult = await model.generateContent([prompt, ...fileParts]);
+    const response = result.response;
+    let jsonStr = response.text().trim();
+    
+    // Clean potential markdown fences
+    const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
+    const match = jsonStr.match(fenceRegex);
+    if (match && match[2]) {
+      jsonStr = match[2].trim();
+    }
+    
+    const parsedData = JSON.parse(jsonStr);
+
+    if (parsedData && Array.isArray(parsedData.questions) && parsedData.questions.every(item => 'question' in item && 'options' in item && 'answer' in item)) {
+        return parsedData.questions as Question[];
+    } else {
+        console.error("La respuesta de la API no tiene el formato esperado:", parsedData);
+        throw new Error('La IA devolvió una respuesta con un formato inesperado.');
+    }
+
+  } catch (error) {
+    console.error("Error al llamar a la API de Gemini:", error);
+    throw new Error('No se pudo comunicar con la IA. Por favor, verifica tu clave de API e inténtalo de nuevo más tarde.');
+  }
+};

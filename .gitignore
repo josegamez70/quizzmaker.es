@@ -1,18 +1,46 @@
 # Dependencias
+# Nunca subas esta carpeta, se instala con 'npm install' o similar
 node_modules
 
-# Archivos de build (Netlify los genera por su cuenta)
+# Archivos de build y directorios temporales
+# Generados por herramientas como Vite, Next.js, Netlify, Vercel, etc.
 dist
-.DS_Store
+.netlify
+.vercel
+.output
+out
 
-# Archivos de entorno y secretos
+# Logs de errores
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Archivos de entorno (¡LA SECCIÓN MÁS IMPORTANTE PARA LA SEGURIDAD!)
+# Contienen claves secretas (API Keys) y no deben ser públicos NUNCA.
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.*.local
+.env.development
+.env.production
 
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Archivos de configuración del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos de configuración de editores de código
+.vscode/
+.idea/
+
+# Cache de herramientas de desarrollo y testing
+.cache
+.npm
+.yarn-cache
+.eslintcache
+.stylelintcache
+.swc
+.turbo
+.vitest-cache
