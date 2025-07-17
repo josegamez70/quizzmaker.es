@@ -1,3 +1,4 @@
+
 {
   "name": "quizzmaker",
   "private": true,
@@ -10,11 +11,11 @@
   },
   "dependencies": {
     "@google/genai": "^1.7.0",
-    "@google/generative-ai": "^0.24.1",
-    "busboy": "^1.6.0"
+    "@supabase/supabase-js": "^2.44.4",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
-    "@types/busboy": "^1.5.4",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",

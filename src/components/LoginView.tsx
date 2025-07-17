@@ -1,7 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { supabase } from '../supabaseClient.ts';
 import { LightbulbIcon, EyeIcon, EyeOffIcon, MailIcon, XCircleIcon, InformationCircleIcon } from './icons.tsx';
+import Loader from './Loader.tsx';
+
+const PrivacyPolicyView = lazy(() => import('./PrivacyPolicyView.tsx'));
 
 const isRateLimitError = (error: any): boolean => {
     if (error?.status === 429) return true;
@@ -19,7 +22,7 @@ const ConfigHelp = () => (
         <li>Ve a: <code className="text-yellow-300">https://supabase.com/dashboard</code></li>
         <li>Selecciona tu proyecto.</li>
         <li>Navega a: <code className="text-yellow-300">Authentication</code> &rarr; <code className="text-yellow-300">URL Configuration</code>.</li>
-        <li className="font-sans text-yellow-200">En <strong>Site URL</strong>, introduce la URL <strong>exacta</strong> de tu aplicación online (ej: <code className="text-yellow-300">https://tu-sitio.com</code>).</li>
+        <li className="font-sans text-yellow-200">En <strong>Site URL</strong>, introduce la URL <strong>exacta</strong> de tu aplicación online (ej: <code className="text-yellow-300">https://tu-sitio.piensasolutions.com</code>).</li>
         <li>Haz clic en <strong>Save</strong>.</li>
       </ol>
       <p>
@@ -40,6 +43,7 @@ export const AuthView: React.FC = () => {
   const [showResend, setShowResend] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [showConfigHelp, setShowConfigHelp] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   useEffect(() => {
     if (cooldown > 0) {
@@ -338,12 +342,21 @@ export const AuthView: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md p-8 space-y-6 bg-gray-800 rounded-2xl shadow-2xl">
-          {renderContent()}
-          <footer className="text-center text-gray-500 text-sm pt-2">
-              <p>&copy; 2024 J M GAMEZ</p>
-          </footer>
-      </div>
+      <Suspense fallback={<Loader text="Cargando..." />}>
+        {showPrivacy ? (
+          <PrivacyPolicyView onGoBack={() => setShowPrivacy(false)} />
+        ) : (
+          <div className="w-full max-w-md p-8 space-y-6 bg-gray-800 rounded-2xl shadow-2xl">
+              {renderContent()}
+              <footer className="text-center text-gray-500 text-sm pt-2">
+                  <button onClick={() => setShowPrivacy(true)} className="hover:text-indigo-400 transition-colors mb-2">
+                    Política de Privacidad y Cookies
+                  </button>
+                  <p>&copy; 2024 J M GAMEZ</p>
+              </footer>
+          </div>
+        )}
+      </Suspense>
     </div>
   );
 };
