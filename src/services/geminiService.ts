@@ -1,13 +1,13 @@
-import { GoogleGenerativeAI, GenerateContentResult } from "@google/generative-ai";
+import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { Question } from '../types.ts';
 
 const apiKey = import.meta.env.VITE_API_KEY;
 
 if (!apiKey) {
-    throw new Error("La clave de API no está configurada. Por favor, asegúrate de que la variable de entorno VITE_API_KEY esté establecida en tu archivo .env.");
+    throw new Error("La clave de API no está configurada. Por favor, asegúrate de que la variable de entorno VITE_API_KEY esté establecida.");
 }
 
-const genAI = new GoogleGenerativeAI(apiKey);
+const ai = new GoogleGenAI({ apiKey });
 
 const fileToGenerativePart = async (file: File) => {
   const base64EncodedDataPromise = new Promise<string>((resolve) => {
@@ -20,20 +20,28 @@ const fileToGenerativePart = async (file: File) => {
   };
 };
 
+/**
+ * Detects the dominant language from the provided files.
+ * @param files The files to analyze.
+ * @returns The detected language name in English (e.g., "Spanish"). Defaults to "Spanish" on error.
+ */
 const detectLanguage = async (files: File[]): Promise<string> => {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" }); 
-
     const fileParts = await Promise.all(
         files.map(fileToGenerativePart)
     );
 
     const prompt = `Analyze the language of the text in the provided file(s). Respond with only the name of the language in English. For example: "Spanish", "English", "French". If multiple languages are present, identify the dominant one.`;
 
-    try {
-        const result: GenerateContentResult = await model.generateContent([prompt, ...fileParts]);
-        const response = result.response;
-        const language = response.text().trim();
+    const textPart = { text: prompt };
+    const allParts = [...fileParts, textPart];
 
+    try {
+        const response: GenerateContentResponse = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-preview-04-17',
+            contents: { parts: allParts },
+        });
+
+        const language = response.text.trim();
         if (!language) {
             console.warn("La detección de idioma no devolvió resultados. Se usará español por defecto.");
             return "Spanish";
@@ -43,19 +51,13 @@ const detectLanguage = async (files: File[]): Promise<string> => {
     } catch (error) {
         console.error("Error durante la detección de idioma:", error);
         console.warn("Se usará español por defecto debido a un error en la detección.");
-        return "Spanish"; 
+        return "Spanish"; // Default on error
     }
 };
 
-export const generateQuizFromImageAndText = async (files: File[], numQuestions: number): Promise<Question[]> => {
-  const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash-latest", 
-      generationConfig: {
-          responseMimeType: "application/json",
-          temperature: 0.5,
-      }
-  });
 
+export const generateQuizFromImageAndText = async (files: File[], numQuestions: number): Promise<Question[]> => {
+  // First, detect the language from the files
   const detectedLanguage = await detectLanguage(files);
   
   const fileParts = await Promise.all(
@@ -77,11 +79,22 @@ The format for each object in the "questions" array must be:
   "answer": "The text of the correct answer in ${detectedLanguage}, which must exactly match one of the options."
 }`;
 
+  const textPart = { text: prompt };
+  const allParts = [...fileParts, textPart];
+
   try {
-    const result: GenerateContentResult = await model.generateContent([prompt, ...fileParts]);
-    const response = result.response;
-    let jsonStr = response.text().trim();
+    const response: GenerateContentResponse = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-preview-04-17',
+      contents: { parts: allParts },
+      config: {
+        responseMimeType: "application/json",
+        temperature: 0.5,
+      }
+    });
+
+    let jsonStr = response.text.trim();
     
+    // Clean potential markdown fences
     const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
     const match = jsonStr.match(fenceRegex);
     if (match && match[2]) {
