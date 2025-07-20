@@ -1,4 +1,4 @@
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Question } from '../types.ts';
 
 const apiKey = import.meta.env.VITE_API_KEY;
