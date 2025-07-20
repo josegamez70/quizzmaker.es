@@ -61,9 +61,21 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
   }, [userId]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData?.access_token) {
+      await supabase.auth.signOut();
+      console.log("Sesión cerrada correctamente.");
+    } else {
+      console.warn("No hay sesión activa para cerrar.");
+    }
+  } catch (error) {
+    console.error("Error al cerrar sesión:", error);
+  } finally {
     forceLogout();
-  };
+  }
+};
+
 
   const handleQuizGeneration = useCallback(async () => {
     if (files.length === 0) {
