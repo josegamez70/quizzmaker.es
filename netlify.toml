@@ -1,14 +1,12 @@
-# netlify.toml
-
 [build]
   command = "npm run build"
   publish = "dist"
+  functions = "netlify/functions"
 
-[functions]
-  directory = "netlify/functions"
-  node_bundler = "esbuild"
+[dev]
+  framework = "vite"
 
 [[redirects]]
-  from = "/*"
-  to = "/index.html"
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
   status = 200

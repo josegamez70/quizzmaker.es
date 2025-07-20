@@ -3,23 +3,27 @@
 import { Handler } from '@netlify/functions';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const apiKey = process.env.VITE_API_KEY;
-const modelName = 'models/gemini-1.5-flash';
-
 const handler: Handler = async (event) => {
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: 'Método no permitido' }),
+    };
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: 'GEMINI_API_KEY no está definida en el entorno' }),
+    };
+  }
+
   try {
-    if (!apiKey) throw new Error('Falta la clave API de Gemini');
+    const { files, numQuestions } = JSON.parse(event.body || '{}');
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const body = JSON.parse(event.body || '{}');
-
-    const { files, numQuestions } = body;
-    if (!files || !numQuestions) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Faltan archivos o número de preguntas' }),
-      };
-    }
+    const ai = new GoogleGenerativeAI(apiKey);
+    const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const parts = files.map((file: { base64: string; mimeType: string }) => ({
       inlineData: {
@@ -28,47 +32,46 @@ const handler: Handler = async (event) => {
       },
     }));
 
-    const prompt = `You are an expert AI assistant specializing in creating educational quizzes from content.
-Your task is to analyze the provided files and generate a multiple-choice quiz with ${numQuestions} questions in Spanish.
-Each question, all its options, and the correct answer must be written entirely in Spanish.
+    parts.push({
+      text: `
+Eres un asistente experto en educación. Genera un cuestionario tipo test con ${numQuestions} preguntas en español.
 
-IMPORTANT: Your response must be EXCLUSIVELY a valid JSON object, with no other text, explanations, or markdown.
-The JSON must strictly adhere to the RFC 8259 standard. NO trailing commas are allowed.
-The JSON object must have a single key "questions", which contains an array of question objects.
+Cada pregunta debe tener 4 opciones y una única respuesta correcta.
 
-The format for each object in the "questions" array must be:
+Devuelve SOLO el JSON con este formato:
 {
-  "question": "Texto de la pregunta en español. Escapa comillas dobles si las hay (ejemplo: \"texto\").",
-  "options": ["Opción A", "Opción B", "Opción C", "Opción D"],
-  "answer": "Texto exacto de la respuesta correcta, que debe coincidir con una de las opciones."
-}`;
-
-    const result = await genAI.getGenerativeModel({ model: modelName }).generateContent({
-      contents: [{ parts: [...parts, { text: prompt }] }],
+  "questions": [
+    {
+      "question": "Texto de la pregunta",
+      "options": ["Opción A", "Opción B", "Opción C", "Opción D"],
+      "answer": "Texto exacto de la respuesta correcta"
+    }
+  ]
+}
+      `.trim(),
     });
 
-    const responseText = result.response.text();
-    const match = responseText.match(/^```(?:json)?\s*([\s\S]*)\s*```$/);
-    const jsonStr = match ? match[1].trim() : responseText.trim();
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts }],
+    });
 
-    const parsed = JSON.parse(jsonStr);
-    if (!Array.isArray(parsed.questions)) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: 'Formato inválido en la respuesta de la IA' }),
-      };
+    const raw = await result.response.text();
+    const jsonClean = raw.match(/^```(?:json)?\s*([\s\S]+?)\s*```$/)?.[1]?.trim() || raw.trim();
+
+    const parsed = JSON.parse(jsonClean);
+    if (!parsed || !Array.isArray(parsed.questions)) {
+      throw new Error('Formato de respuesta inválido');
     }
 
     return {
       statusCode: 200,
       body: JSON.stringify({ questions: parsed.questions }),
     };
-
-  } catch (err) {
-    console.error('Error en función generate:', err);
+  } catch (error) {
+    console.error('Error al generar cuestionario:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Error al generar cuestionario con Gemini' }),
+      body: JSON.stringify({ error: error instanceof Error ? error.message : 'Error desconocido' }),
     };
   }
 };
