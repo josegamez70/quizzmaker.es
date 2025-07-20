@@ -1,10 +1,10 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Question } from '../types.ts';
 
-const apiKey = import.meta.env.VITE_API_KEY;
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
 if (!apiKey) {
-  throw new Error("La clave de API no está configurada. Por favor, asegúrate de que la variable de entorno VITE_API_KEY esté establecida.");
+  throw new Error("La clave de API no está configurada. Asegúrate de que la variable de entorno VITE_GEMINI_API_KEY esté establecida.");
 }
 
 const ai = new GoogleGenerativeAI(apiKey);
