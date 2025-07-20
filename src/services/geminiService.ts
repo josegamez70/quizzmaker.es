@@ -1,13 +1,13 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, GenerateContentResponse } from "@google/generative-ai";
 import { Question } from '../types.ts';
 
 const apiKey = import.meta.env.VITE_API_KEY;
 
 if (!apiKey) {
-    throw new Error("La clave de API no está configurada. Por favor, asegúrate de que la variable de entorno VITE_API_KEY esté establecida.");
+  throw new Error("La clave de API no está configurada. Por favor, asegúrate de que la variable de entorno VITE_API_KEY esté establecida.");
 }
 
-const ai = new GoogleGenAI({ apiKey });
+const ai = new GoogleGenerativeAI(apiKey);
 
 const fileToGenerativePart = async (file: File) => {
   const base64EncodedDataPromise = new Promise<string>((resolve) => {
@@ -20,49 +20,37 @@ const fileToGenerativePart = async (file: File) => {
   };
 };
 
-/**
- * Detects the dominant language from the provided files.
- * @param files The files to analyze.
- * @returns The detected language name in English (e.g., "Spanish"). Defaults to "Spanish" on error.
- */
 const detectLanguage = async (files: File[]): Promise<string> => {
-    const fileParts = await Promise.all(
-        files.map(fileToGenerativePart)
-    );
+  const fileParts = await Promise.all(files.map(fileToGenerativePart));
 
-    const prompt = `Analyze the language of the text in the provided file(s). Respond with only the name of the language in English. For example: "Spanish", "English", "French". If multiple languages are present, identify the dominant one.`;
+  const prompt = `Analyze the language of the text in the provided file(s). Respond with only the name of the language in English. For example: "Spanish", "English", "French". If multiple languages are present, identify the dominant one.`;
 
-    const textPart = { text: prompt };
-    const allParts = [...fileParts, textPart];
+  const textPart = { text: prompt };
+  const allParts = [...fileParts, textPart];
 
-    try {
-        const response: GenerateContentResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-preview-04-17',
-            contents: { parts: allParts },
-        });
+  try {
+    const response: GenerateContentResponse = await ai.generateContent({
+      model: 'gemini-2.5-flash-preview-04-17',
+      contents: { parts: allParts },
+    });
 
-        const language = response.text.trim();
-        if (!language) {
-            console.warn("La detección de idioma no devolvió resultados. Se usará español por defecto.");
-            return "Spanish";
-        }
-        console.log(`Idioma detectado: ${language}`);
-        return language;
-    } catch (error) {
-        console.error("Error durante la detección de idioma:", error);
-        console.warn("Se usará español por defecto debido a un error en la detección.");
-        return "Spanish"; // Default on error
+    const language = response.text.trim();
+    if (!language) {
+      console.warn("La detección de idioma no devolvió resultados. Se usará español por defecto.");
+      return "Spanish";
     }
+    console.log(`Idioma detectado: ${language}`);
+    return language;
+  } catch (error) {
+    console.error("Error durante la detección de idioma:", error);
+    console.warn("Se usará español por defecto debido a un error en la detección.");
+    return "Spanish";
+  }
 };
 
-
 export const generateQuizFromImageAndText = async (files: File[], numQuestions: number): Promise<Question[]> => {
-  // First, detect the language from the files
   const detectedLanguage = await detectLanguage(files);
-  
-  const fileParts = await Promise.all(
-    files.map(fileToGenerativePart)
-  );
+  const fileParts = await Promise.all(files.map(fileToGenerativePart));
 
   const prompt = `You are an expert AI assistant specializing in creating educational quizzes from content.
 Your task is to analyze the provided files and generate a multiple-choice quiz with ${numQuestions} questions in the following language: ${detectedLanguage}.
@@ -83,7 +71,7 @@ The format for each object in the "questions" array must be:
   const allParts = [...fileParts, textPart];
 
   try {
-    const response: GenerateContentResponse = await ai.models.generateContent({
+    const response: GenerateContentResponse = await ai.generateContent({
       model: 'gemini-2.5-flash-preview-04-17',
       contents: { parts: allParts },
       config: {
@@ -93,21 +81,21 @@ The format for each object in the "questions" array must be:
     });
 
     let jsonStr = response.text.trim();
-    
-    // Clean potential markdown fences
+
+    // Limpiar posibles bloques de markdown
     const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
     const match = jsonStr.match(fenceRegex);
     if (match && match[2]) {
       jsonStr = match[2].trim();
     }
-    
+
     const parsedData = JSON.parse(jsonStr);
 
     if (parsedData && Array.isArray(parsedData.questions) && parsedData.questions.every(item => 'question' in item && 'options' in item && 'answer' in item)) {
-        return parsedData.questions as Question[];
+      return parsedData.questions as Question[];
     } else {
-        console.error("La respuesta de la API no tiene el formato esperado:", parsedData);
-        throw new Error('La IA devolvió una respuesta con un formato inesperado.');
+      console.error("La respuesta de la API no tiene el formato esperado:", parsedData);
+      throw new Error('La IA devolvió una respuesta con un formato inesperado.');
     }
 
   } catch (error) {
