@@ -8,7 +8,7 @@ if (!apiKey) {
 }
 
 const ai = new GoogleGenerativeAI(apiKey);
-const model = ai.getGenerativeModel({ model: 'gemini-pro-vision' });
+const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' }); // ✅ modelo actual válido
 
 const fileToGenerativePart = async (file: File) => {
   const base64EncodedDataPromise = new Promise<string>((resolve) => {
@@ -34,13 +34,15 @@ const detectLanguage = async (files: File[]): Promise<string> => {
       contents: [{ parts: allParts }]
     });
 
-    const language = response?.response?.text()?.trim();
-    if (!language) {
+    const language = await response.response.text();
+    const trimmed = language?.trim();
+
+    if (!trimmed) {
       console.warn("La detección de idioma no devolvió resultados. Se usará español por defecto.");
       return "Spanish";
     }
-    console.log(`Idioma detectado: ${language}`);
-    return language;
+    console.log(`Idioma detectado: ${trimmed}`);
+    return trimmed;
   } catch (error) {
     console.error("Error durante la detección de idioma:", error);
     return "Spanish";
@@ -75,13 +77,10 @@ Format:
       contents: [{ parts: allParts }]
     });
 
-    const raw = response?.response?.text()?.trim();
-    if (!raw) {
-      throw new Error("La IA no devolvió ningún texto.");
-    }
+    const raw = await response.response.text();
+    const cleaned = raw?.match(/^```(?:json)?\s*([\s\S]+?)\s*```$/)?.[1]?.trim() || raw?.trim();
 
-    const match = raw.match(/^```(?:json)?\s*([\s\S]+?)\s*```$/);
-    const cleaned = match ? match[1].trim() : raw;
+    if (!cleaned) throw new Error("La IA no devolvió ningún texto.");
 
     const parsed = JSON.parse(cleaned);
     if (parsed && Array.isArray(parsed.questions)) {
