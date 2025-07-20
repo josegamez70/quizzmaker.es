@@ -8,6 +8,7 @@ if (!apiKey) {
 }
 
 const ai = new GoogleGenerativeAI(apiKey);
+const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash-preview-04-17' });
 
 const fileToGenerativePart = async (file: File) => {
   const base64EncodedDataPromise = new Promise<string>((resolve) => {
@@ -29,9 +30,8 @@ const detectLanguage = async (files: File[]): Promise<string> => {
   const allParts = [...fileParts, textPart];
 
   try {
-    const response: GenerateContentResponse = await ai.generateContent({
-      model: 'gemini-2.5-flash-preview-04-17',
-      contents: { parts: allParts },
+    const response: GenerateContentResponse = await model.generateContent({
+      contents: { parts: allParts }
     });
 
     const language = response.text.trim();
@@ -71,8 +71,7 @@ The format for each object in the "questions" array must be:
   const allParts = [...fileParts, textPart];
 
   try {
-    const response: GenerateContentResponse = await ai.generateContent({
-      model: 'gemini-2.5-flash-preview-04-17',
+    const response: GenerateContentResponse = await model.generateContent({
       contents: { parts: allParts },
       config: {
         responseMimeType: "application/json",
