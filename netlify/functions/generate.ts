@@ -1,7 +1,5 @@
-// netlify/functions/generate.ts
-
 import { Handler } from '@netlify/functions';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI, Type } from '@google/genai';
 
 const handler: Handler = async (event) => {
   if (event.httpMethod !== 'POST') {
@@ -11,21 +9,40 @@ const handler: Handler = async (event) => {
     };
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  if (!process.env.GEMINI_API_KEY) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'GEMINI_API_KEY no está definida en el entorno' }),
+      body: JSON.stringify({ error: 'Falta la clave de API en el entorno del servidor' }),
     };
   }
 
   try {
-    const { files, numQuestions } = JSON.parse(event.body || '{}');
+    const body = JSON.parse(event.body || '{}');
+    const { files, numQuestions } = body;
 
-    const ai = new GoogleGenerativeAI(apiKey);
-    const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-    const parts = files.map((file: { base64: string; mimeType: string }) => ({
+    const schema = {
+      type: Type.OBJECT,
+      properties: {
+        questions: {
+          type: Type.ARRAY,
+          description: "Lista de preguntas generadas",
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              question: { type: Type.STRING },
+              options: { type: Type.ARRAY, items: { type: Type.STRING } },
+              answer: { type: Type.STRING },
+            },
+            required: ['question', 'options', 'answer'],
+          },
+        },
+      },
+      required: ['questions'],
+    };
+
+    const parts = files.map((file: any) => ({
       inlineData: {
         data: file.base64,
         mimeType: file.mimeType,
@@ -33,45 +50,39 @@ const handler: Handler = async (event) => {
     }));
 
     parts.push({
-      text: `
-Eres un asistente experto en educación. Genera un cuestionario tipo test con ${numQuestions} preguntas en español.
-
-Cada pregunta debe tener 4 opciones y una única respuesta correcta.
-
-Devuelve SOLO el JSON con este formato:
+      text: `Generate a quiz with ${numQuestions} multiple-choice questions in English. Each question should have 4 options and one correct answer. Return ONLY valid JSON (no markdown or explanation). Format:
 {
   "questions": [
     {
-      "question": "Texto de la pregunta",
-      "options": ["Opción A", "Opción B", "Opción C", "Opción D"],
-      "answer": "Texto exacto de la respuesta correcta"
+      "question": "Pregunta",
+      "options": ["A", "B", "C", "D"],
+      "answer": "Respuesta correcta"
     }
   ]
-}
-      `.trim(),
+}`
     });
 
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts }],
+    const result = await ai.models.generateContent({
+      model: 'gemini-1.5-flash',
+      contents: [{ parts }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: schema,
+      }
     });
 
-    const raw = await result.response.text();
-    const jsonClean = raw.match(/^```(?:json)?\s*([\s\S]+?)\s*```$/)?.[1]?.trim() || raw.trim();
-
-    const parsed = JSON.parse(jsonClean);
-    if (!parsed || !Array.isArray(parsed.questions)) {
-      throw new Error('Formato de respuesta inválido');
-    }
+    const data = JSON.parse(result.text);
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ questions: parsed.questions }),
+      body: JSON.stringify(data),
     };
-  } catch (error) {
-    console.error('Error al generar cuestionario:', error);
+
+  } catch (err: any) {
+    console.error("Error:", err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: error instanceof Error ? error.message : 'Error desconocido' }),
+      body: JSON.stringify({ error: err.message || 'Error interno al generar cuestionario' }),
     };
   }
 };

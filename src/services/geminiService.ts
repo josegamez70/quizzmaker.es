@@ -1,5 +1,3 @@
-// src/services/geminiService.ts
-
 import { Question } from '../types';
 
 /**
@@ -22,7 +20,7 @@ export const generateQuizFromImageAndText = async (files: File[], numQuestions: 
     })
   );
 
-  const response = await fetch('/api/generate', {
+  const response = await fetch('/.netlify/functions/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ files: base64Files, numQuestions }),
