@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, GenerateContentResponse } from "@google/generative-ai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Question } from '../types.ts';
 
 const apiKey = import.meta.env.VITE_API_KEY;
@@ -8,6 +8,7 @@ if (!apiKey) {
 }
 
 const ai = new GoogleGenerativeAI(apiKey);
+const model = ai.getGenerativeModel({ model: 'gemini-pro-vision' });
 
 const fileToGenerativePart = async (file: File) => {
   const base64EncodedDataPromise = new Promise<string>((resolve) => {
@@ -29,12 +30,11 @@ const detectLanguage = async (files: File[]): Promise<string> => {
   const allParts = [...fileParts, textPart];
 
   try {
-    const response = await ai.generateContent({
-      model: 'gemini-pro-vision',
+    const response = await model.generateContent({
       contents: [{ parts: allParts }]
     });
 
-    const language = response?.text?.trim();
+    const language = response?.response?.text()?.trim();
     if (!language) {
       console.warn("La detección de idioma no devolvió resultados. Se usará español por defecto.");
       return "Spanish";
@@ -43,7 +43,6 @@ const detectLanguage = async (files: File[]): Promise<string> => {
     return language;
   } catch (error) {
     console.error("Error durante la detección de idioma:", error);
-    console.warn("Se usará español por defecto debido a un error en la detección.");
     return "Spanish";
   }
 };
@@ -72,26 +71,21 @@ Format:
   const allParts = [...fileParts, textPart];
 
   try {
-    const response = await ai.generateContent({
-      model: 'gemini-pro-vision',
+    const response = await model.generateContent({
       contents: [{ parts: allParts }]
     });
 
-    const jsonStr = response?.text?.trim();
-    if (!jsonStr) {
-      console.error("La IA no devolvió ningún texto.");
-      throw new Error("La IA no respondió correctamente. Verifica tu clave de API o el contenido del archivo.");
+    const raw = response?.response?.text()?.trim();
+    if (!raw) {
+      throw new Error("La IA no devolvió ningún texto.");
     }
 
-    // Limpiar posibles bloques de Markdown
-    const fenceRegex = /^```(?:json)?\s*\n?([\s\S]*?)\n?```$/;
-    const match = jsonStr.match(fenceRegex);
-    const cleanedJson = match ? match[1].trim() : jsonStr;
+    const match = raw.match(/^```(?:json)?\s*([\s\S]+?)\s*```$/);
+    const cleaned = match ? match[1].trim() : raw;
 
-    const parsed = JSON.parse(cleanedJson);
-
+    const parsed = JSON.parse(cleaned);
     if (parsed && Array.isArray(parsed.questions)) {
-      return parsed.questions as Question[];
+      return parsed.questions;
     } else {
       throw new Error("El formato de la respuesta no es válido.");
     }
