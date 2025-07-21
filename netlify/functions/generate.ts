@@ -50,14 +50,12 @@ const handler: Handler = async (event) => {
     }));
 
     parts.push({
-      text: `📚 Lee los documentos adjuntos y detecta automáticamente el idioma. 
-Luego genera un cuestionario en ese mismo idioma con ${numQuestions} preguntas tipo test (4 opciones por pregunta).
-Incluye la respuesta correcta para cada pregunta.
-Devuelve SOLO JSON válido, sin explicaciones, sin texto adicional, sin markdown. Formato exacto:
+      text: `Detecta el idioma principal del documento. Luego, genera ${numQuestions} preguntas tipo test en ese mismo idioma. Cada pregunta debe tener 4 opciones y una única respuesta correcta. Devuelve SOLO JSON válido (sin markdown ni explicaciones). Formato:
+
 {
   "questions": [
     {
-      "question": "Texto de la pregunta",
+      "question": "Pregunta",
       "options": ["Opción A", "Opción B", "Opción C", "Opción D"],
       "answer": "Respuesta correcta"
     }
