@@ -50,12 +50,15 @@ const handler: Handler = async (event) => {
     }));
 
     parts.push({
-      text: `Generate a quiz with ${numQuestions} multiple-choice questions in English. Each question should have 4 options and one correct answer. Return ONLY valid JSON (no markdown or explanation). Format:
+      text: `📚 Lee los documentos adjuntos y detecta automáticamente el idioma. 
+Luego genera un cuestionario en ese mismo idioma con ${numQuestions} preguntas tipo test (4 opciones por pregunta).
+Incluye la respuesta correcta para cada pregunta.
+Devuelve SOLO JSON válido, sin explicaciones, sin texto adicional, sin markdown. Formato exacto:
 {
   "questions": [
     {
-      "question": "Pregunta",
-      "options": ["A", "B", "C", "D"],
+      "question": "Texto de la pregunta",
+      "options": ["Opción A", "Opción B", "Opción C", "Opción D"],
       "answer": "Respuesta correcta"
     }
   ]
