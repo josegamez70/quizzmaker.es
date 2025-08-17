@@ -1,0 +1,7 @@
+
+{
+  "name": "QUIZZ MAKER",
+  "description": "Crea tu cuestionario en minutos. Sube un PDF o una imagen y la IA generará un desafío para ti.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
