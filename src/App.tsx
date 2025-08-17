@@ -1,5 +1,4 @@
 // src/App.tsx
-
 import React, { useState, useCallback, useEffect, lazy, Suspense } from 'react';
 import { AppState, Question, SavedQuiz } from './types.ts';
 import { generateQuizFromImageAndText } from './services/geminiService.ts';
@@ -50,7 +49,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
         if (error) throw error;
         if (data) setProfile(data);
       } catch (caughtError: unknown) {
-        const message = caughtError instanceof Error ? caughtError.message : 'Ocurrió un error desconocido al buscar el perfil.';
+        const message = caughtError instanceof Error ? caughtError.message : 'Error al buscar el perfil.';
         console.error("Error fetching profile:", message);
       }
     };
@@ -111,7 +110,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
       const attempts = profileData.quiz_attempts || 0;
       const isPro = profileData.is_pro || false;
 
-      if (isPro || attempts < 5) {
+      if (isPro || attempts < 4) {
         if (!isPro) {
           await supabase.from('profiles').update({ quiz_attempts: attempts + 1 }).eq('id', userId);
         }
@@ -126,7 +125,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           throw new Error('No se pudieron generar preguntas. Intenta con un archivo diferente.');
         }
       } else {
-        setAppState(AppState.LIMIT_REACHED);
+        handleGoPro(); // Redirige automáticamente
       }
     } catch (caughtError: unknown) {
       const message = caughtError instanceof Error ? caughtError.message : 'Ocurrió un error desconocido.';
@@ -163,7 +162,6 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
 
   const handleShowSaved = () => setAppState(AppState.SAVED_QUIZZES);
   const handleShowPrivacy = () => setAppState(AppState.PRIVACY);
-
   const handleViewSavedQuiz = (savedQuiz: SavedQuiz) => {
     setQuiz(savedQuiz.questions);
     setScore(savedQuiz.score);
@@ -177,7 +175,6 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
       case AppState.QUIZ: return <QuizView questions={quiz} onFinish={handleQuizFinish} onRestart={handleRestart} />;
       case AppState.RESULTS: return <ResultsView score={score} questions={quiz} userAnswers={userAnswers} onRestart={handleRestart} onReshuffle={handleReshuffle} user={session.user} />;
       case AppState.ERROR: return (<div className="text-center p-8 bg-gray-800 rounded-lg"><h2 className="text-2xl font-bold text-red-500 mb-4">¡Oops! Algo salió mal</h2><p className="text-gray-300 mb-6">{error}</p><button onClick={handleRestart} className="px-6 py-2 bg-indigo-600">Intentar de Nuevo</button></div>);
-      case AppState.LIMIT_REACHED: return (<div className="text-center p-8 bg-gray-800 rounded-2xl shadow-2xl"><h2 className="text-3xl font-bold text-yellow-400 mb-4">Límite Alcanzado</h2><p className="text-gray-300 text-lg mb-6">Has utilizado tus 5 intentos gratuitos.</p><p className="text-gray-400 mb-8">Hazte Pro para uso ilimitado.</p><div className="flex justify-center gap-4"><button onClick={handleGoPro} className="px-6 py-2 bg-yellow-500 text-black font-semibold rounded hover:bg-yellow-600">Hazte Pro</button><button onClick={handleLogout} className="px-6 py-2 bg-indigo-600">Cerrar Sesión</button></div></div>);
       case AppState.SAVED_QUIZZES: return <SavedQuizzesView onViewQuiz={handleViewSavedQuiz} onGoHome={handleRestart} />;
       case AppState.PRIVACY: return <PrivacyPolicyView onGoBack={handleRestart} />;
       case AppState.IDLE: default: return (<ImageUploader onFilesSelect={setFiles} onSubmit={handleQuizGeneration} numQuestions={numQuestions} onNumQuestionsChange={setNumQuestions} />);
@@ -191,7 +188,9 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-300 hidden sm:block" title={profile?.username || session.user.email}>Hola, <span className="font-semibold">{profile?.username || session.user.email?.split('@')[0]}</span></span>
           <button onClick={handleShowSaved} title="Mis Cuestionarios" className="flex items-center gap-2 p-3 rounded-md text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"><BookmarkIcon className="w-5 h-5"/><span className="hidden md:inline text-sm font-medium">Guardados</span></button>
-          <button onClick={handleGoPro} title="Hazte Pro" className="flex items-center gap-2 p-3 rounded-md text-yellow-400 hover:bg-yellow-800 hover:text-white transition-colors">🚀 <span className="hidden md:inline text-sm font-medium">Hazte Pro</span></button>
+          {!profile?.is_pro && (
+            <button onClick={handleGoPro} title="Hazte Pro" className="flex items-center gap-2 p-3 rounded-md text-yellow-400 hover:bg-yellow-800 hover:text-white transition-colors">🚀 <span className="hidden md:inline text-sm font-medium">Hazte Pro</span></button>
+          )}
           <button onClick={handleLogout} title="Cerrar Sesión" className="flex items-center gap-2 p-3 rounded-md text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"><LogoutIcon className="w-5 h-5"/><span className="hidden md:inline text-sm font-medium">Salir</span></button>
         </div>
       </header>
