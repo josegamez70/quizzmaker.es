@@ -1,48 +1,56 @@
-import type { Handler } from '@netlify/functions';
-import Stripe from 'stripe';
-import { createClient } from '@supabase/supabase-js';
+import Stripe from "stripe";
+import { Handler } from "@netlify/functions";
+import { supabase } from "../../src/supabaseClient";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-04-10',
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+  apiVersion: "2024-04-10",
 });
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 const handler: Handler = async (event) => {
-  const sig = event.headers['stripe-signature'] as string;
-
-  let stripeEvent;
   try {
-    stripeEvent = stripe.webhooks.constructEvent(
-      event.body!,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
-  } catch (err) {
-    console.error('Webhook signature verification failed:', err);
-    return { statusCode: 400, body: `Webhook error: ${err}` };
-  }
+    const body = JSON.parse(event.body || "{}");
+    const { origin, user } = body;
 
-  if (stripeEvent.type === 'checkout.session.completed') {
-    const session = stripeEvent.data.object as Stripe.Checkout.Session;
-    const userId = session.metadata?.userId;
-
-    if (userId) {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ is_pro: true })
-        .eq('id', userId);
-
-      if (error) {
-        console.error('Error actualizando perfil Supabase:', error);
-      }
+    if (!user || !user.id) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Falta el ID del usuario." }),
+      };
     }
-  }
 
-  return { statusCode: 200, body: 'OK' };
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      payment_method_types: ["card"],
+      success_url: `${origin}/success`,
+      cancel_url: `${origin}/cancel`,
+      line_items: [
+        {
+          price_data: {
+            currency: "eur",
+            product_data: {
+              name: "Cuenta Pro - QuizzMaker",
+            },
+            unit_amount: 490, // en céntimos
+          },
+          quantity: 1,
+        },
+      ],
+      metadata: {
+        user_id: user.id, // 👈 ESENCIAL para que el webhook sepa qué usuario actualizar
+      },
+    });
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ url: session.url }),
+    };
+  } catch (error) {
+    console.error("Error creando sesión de Stripe:", error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "Error al crear la sesión de pago" }),
+    };
+  }
 };
 
 export { handler };
