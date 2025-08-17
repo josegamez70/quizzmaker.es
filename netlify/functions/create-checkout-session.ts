@@ -1,3 +1,5 @@
+// netlify/functions/create-checkout-session.ts
+
 import { Handler } from '@netlify/functions';
 import Stripe from 'stripe';
 
@@ -5,33 +7,38 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-04-10',
 });
 
-const handler: Handler = async (event) => {
+export const handler: Handler = async (event) => {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Method Not Allowed' };
+  }
+
   try {
+    const { user_id } = JSON.parse(event.body || '{}');
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      mode: 'payment',
       line_items: [
         {
-          price: process.env.STRIPE_PRICE_ID!,
+          price: 'price_1RkO0CD66URNCYcO5LMLPRGe',
           quantity: 1,
         },
       ],
-      // 🔧 Corrección aquí: usar URLs absolutas válidas
+      mode: 'payment',
       success_url: 'https://quizzmaker.es/success',
       cancel_url: 'https://quizzmaker.es/cancel',
+      metadata: {
+        user_id, // ✅ Aquí enviamos el user_id a Stripe
+      },
     });
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ url: session.url }),
+      body: JSON.stringify({ id: session.id }),
     };
-  } catch (error: any) {
-    console.error('Error creando sesión de Stripe:', error);
+  } catch (err: any) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'No se pudo crear la sesión de pago.' }),
+      body: JSON.stringify({ error: err.message }),
     };
   }
 };
-
-export { handler };
