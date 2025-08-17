@@ -1,106 +1,96 @@
-import React, { useState, useEffect } from 'react';
-import { Question } from '../types.ts';
-import { CheckCircleIcon, XCircleIcon, HomeIcon } from './icons.tsx';
+// src/views/QuizView.tsx
+import React, { useEffect, useState } from "react";
+import { getQuizFromPDF } from "../services/geminiService";
+import { Quiz, QuizQuestion } from "../types";
+import QuizComponent from "../components/QuizComponent";
+import { supabase } from "../supabaseClient";
+import { createCheckoutSession } from "../services/stripeService";
+import { useSession } from "@supabase/auth-helpers-react";
 
 interface QuizViewProps {
-  questions: Question[];
-  onFinish: (score: number, answers: (string | null)[]) => void;
-  onRestart: () => void;
+  pdfText: string;
+  onReset: () => void;
 }
 
-const QuizView: React.FC<QuizViewProps> = ({ questions, onFinish, onRestart }) => {
+const QuizView: React.FC<QuizViewProps> = ({ pdfText, onReset }) => {
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [score, setScore] = useState(0);
-  const [userAnswers, setUserAnswers] = useState<(string | null)[]>(Array(questions.length).fill(null));
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  const [isAnswered, setIsAnswered] = useState(false);
-
-  const currentQuestion = questions[currentQuestionIndex];
+  const [userAnswers, setUserAnswers] = useState<(string | null)[]>([]);
+  const [attempts, setAttempts] = useState(0);
+  const [isPro, setIsPro] = useState(false);
+  const session = useSession();
 
   useEffect(() => {
-    if (isAnswered) {
-      const timer = setTimeout(() => {
-        if (currentQuestionIndex < questions.length - 1) {
-          setCurrentQuestionIndex(prev => prev + 1);
-          setSelectedAnswer(null);
-          setIsAnswered(false);
-        } else {
-          onFinish(score, userAnswers);
+    const fetchQuiz = async () => {
+      const generatedQuiz = await getQuizFromPDF(pdfText);
+      setQuiz(generatedQuiz);
+      setUserAnswers(Array(generatedQuiz.questions.length).fill(null));
+    };
+
+    fetchQuiz();
+  }, [pdfText]);
+
+  useEffect(() => {
+    const checkUserPro = async () => {
+      if (!session?.user) return;
+      const { data, error } = await supabase
+        .from("users")
+        .select("is_pro")
+        .eq("id", session.user.id)
+        .single();
+
+      if (data?.is_pro) {
+        setIsPro(true);
+      }
+    };
+
+    checkUserPro();
+  }, [session]);
+
+  const handleAnswer = (answer: string) => {
+    if (!quiz) return;
+    const updatedAnswers = [...userAnswers];
+    updatedAnswers[currentQuestionIndex] = answer;
+    setUserAnswers(updatedAnswers);
+
+    const isCorrect = answer === quiz.questions[currentQuestionIndex].correctAnswer;
+    if (!isCorrect) {
+      setAttempts((prev) => {
+        const newAttempts = prev + 1;
+        if (newAttempts >= 4 && !isPro) {
+          alert("Has alcanzado el límite de intentos. Redirigiendo a la compra Pro...");
+          createCheckoutSession();
         }
-      }, 1500);
-      return () => clearTimeout(timer);
+        return newAttempts;
+      });
     }
-  }, [isAnswered, currentQuestionIndex, questions.length, score, onFinish, userAnswers]);
 
-  const handleAnswerSelect = (option: string) => {
-    if (isAnswered) return;
-
-    const newAnswers = [...userAnswers];
-    newAnswers[currentQuestionIndex] = option;
-    setUserAnswers(newAnswers);
-
-    setSelectedAnswer(option);
-    setIsAnswered(true);
-    if (option === currentQuestion.answer) {
-      setScore(prev => prev + 1);
-    }
+    setTimeout(() => {
+      setCurrentQuestionIndex((prev) => prev + 1);
+    }, 1000);
   };
 
-  const getButtonClass = (option: string) => {
-    if (!isAnswered) {
-      return 'bg-gray-700 hover:bg-gray-600';
-    }
-    const isCorrect = option === currentQuestion.answer;
-    const isSelected = option === selectedAnswer;
-
-    if (isCorrect) return 'bg-green-600/80 ring-2 ring-green-400';
-    if (isSelected && !isCorrect) return 'bg-red-600/80 ring-2 ring-red-400';
-    
-    return 'bg-gray-700 opacity-50';
-  };
+  if (!quiz) return <p className="text-white">Cargando cuestionario...</p>;
+  if (currentQuestionIndex >= quiz.questions.length)
+    return (
+      <div className="text-white text-center">
+        <h2 className="text-xl font-bold mb-4">¡Has completado el cuestionario!</h2>
+        <button
+          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded"
+          onClick={onReset}
+        >
+          Volver
+        </button>
+      </div>
+    );
 
   return (
-    <div className="w-full max-w-3xl p-6 sm:p-8 bg-gray-800 rounded-2xl shadow-2xl animate-fade-in relative">
-      <button onClick={onRestart} className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors" title="Volver al inicio">
-        <HomeIcon className="w-7 h-7" />
-      </button>
-      <div className="mb-6">
-        <p className="text-sm font-medium text-indigo-400">
-          Pregunta {currentQuestionIndex + 1} de {questions.length}
-        </p>
-        <h2 className="mt-1 text-2xl sm:text-3xl font-bold text-white pr-10">
-          {currentQuestion.question}
-        </h2>
-      </div>
-      <div className="space-y-4">
-        {currentQuestion.options.map((option, index) => (
-          <button
-            key={index}
-            onClick={() => handleAnswerSelect(option)}
-            disabled={isAnswered}
-            className={`w-full text-left p-4 rounded-lg text-white font-medium transition-all duration-300 flex items-center justify-between ${getButtonClass(option)}`}
-          >
-            <span>{option}</span>
-            {isAnswered && option === currentQuestion.answer && <CheckCircleIcon className="w-6 h-6 text-white"/>}
-            {isAnswered && option === selectedAnswer && option !== currentQuestion.answer && <XCircleIcon className="w-6 h-6 text-white"/>}
-          </button>
-        ))}
-      </div>
-
-      {/* 🔹 Mostrar contexto si la respuesta fue incorrecta */}
-      {isAnswered && selectedAnswer !== currentQuestion.answer && currentQuestion.context && (
-        <div className="mt-4 p-4 bg-gray-900 rounded-lg border border-gray-700">
-          <p className="text-sm text-gray-400 mb-1">Fragmento del documento:</p>
-          <p className="text-gray-200 text-sm italic">{currentQuestion.context}</p>
-        </div>
-      )}
-
-      <div className="mt-6 h-1 w-full bg-gray-700 rounded-full">
-        <div 
-            className="h-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
-            style={{width: `${((currentQuestionIndex + (isAnswered ? 1 : 0)) / questions.length) * 100}%`}}
-        />
-      </div>
+    <div className="p-4">
+      <QuizComponent
+        question={quiz.questions[currentQuestionIndex]}
+        onAnswer={handleAnswer}
+        selectedAnswer={userAnswers[currentQuestionIndex]}
+      />
     </div>
   );
 };
