@@ -1,63 +1,68 @@
 // netlify/functions/stripe-webhook.ts
+
 import { Handler } from '@netlify/functions';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-04-10',
 });
 
-// Crea Supabase client porque estamos en función serverless (no usar supabaseClient.ts)
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // ATENCIÓN: aquí necesitas la clave secreta "service_role"
+  process.env.VITE_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
-
 const handler: Handler = async (event) => {
-  const signature = event.headers['stripe-signature'];
-  if (!signature) return { statusCode: 400, body: 'Missing stripe-signature header' };
+  const sig = event.headers['stripe-signature'];
+
+  if (!sig) {
+    console.error('❌ Falta la firma de Stripe');
+    return { statusCode: 400, body: 'Missing Stripe signature' };
+  }
 
   let stripeEvent: Stripe.Event;
 
   try {
-    stripeEvent = stripe.webhooks.constructEvent(event.body!, signature, webhookSecret);
+    stripeEvent = stripe.webhooks.constructEvent(
+      event.body!,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET!
+    );
   } catch (err) {
-    console.error('⚠️ Webhook signature verification failed:', err);
-    return { statusCode: 400, body: 'Webhook Error' };
+    console.error('❌ Error validando webhook:', err);
+    return { statusCode: 400, body: `Webhook Error: ${err}` };
   }
+
+  console.log('✅ Evento recibido:', stripeEvent.type);
 
   if (stripeEvent.type === 'checkout.session.completed') {
     const session = stripeEvent.data.object as Stripe.Checkout.Session;
     const userId = session.metadata?.user_id;
 
+    console.log('🧾 user_id:', userId);
+    console.log('🧾 email:', session.customer_email);
+
     if (!userId) {
-      console.error('❌ Metadata.user_id is missing in session');
-      return { statusCode: 400, body: 'Missing user_id in metadata' };
+      console.error('❌ No se recibió user_id en metadata');
+      return { statusCode: 400, body: 'No user_id in metadata' };
     }
 
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ is_pro: true })
-        .eq('id', userId);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_pro: true })
+      .eq('id', userId);
 
-      if (error) {
-        console.error('❌ Supabase update failed:', error.message);
-        return { statusCode: 500, body: 'Failed to update user in Supabase' };
-      }
-
-      console.log(`✅ Usuario ${userId} actualizado como PRO.`);
-      return { statusCode: 200, body: 'User upgraded to PRO successfully' };
-    } catch (error) {
-      console.error('❌ Error al actualizar usuario:', error);
-      return { statusCode: 500, body: 'Unexpected error updating user' };
+    if (error) {
+      console.error('❌ Error actualizando Supabase:', error.message);
+      return { statusCode: 500, body: 'Supabase update failed' };
     }
+
+    console.log('✅ Usuario actualizado a Pro en Supabase');
+    return { statusCode: 200, body: 'User upgraded to Pro' };
   }
 
-  // Para cualquier otro evento, responde 200 sin acción
-  return { statusCode: 200, body: 'Webhook received with no action' };
+  return { statusCode: 200, body: 'Event received (ignored)' };
 };
 
 export { handler };
