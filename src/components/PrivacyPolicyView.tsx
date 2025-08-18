@@ -1,3 +1,5 @@
+// src/components/PrivacyPolicyView.tsx
+
 
 import React from 'react';
 import { HomeIcon } from './icons.tsx';
@@ -54,7 +56,8 @@ const PrivacyPolicyView: React.FC<PrivacyPolicyViewProps> = ({ onGoBack }) => {
         <p>Reconoces haber leído esta Política y aceptas todos sus términos y condiciones. Al utilizar el Sitio Web o sus Servicios, aceptas quedar vinculado por esta Política. Si no estás de acuerdo con los términos, no estás autorizado a utilizar el Sitio Web ni sus Servicios.</p>
         
         <h4 className="text-lg font-semibold text-indigo-300 mt-6 mb-2">Contacto</h4>
-        <p>Si deseas ponerte en contacto con nosotros para obtener más información sobre esta Política o sobre cualquier asunto relacionado con el uso de cookies, puedes hacerlo.</p>
+        {/* ¡NUEVA INFORMACIÓN DE CONTACTO AÑADIDA AQUÍ! */}
+        <p>Si deseas ponerte en contacto con nosotros para obtener más información sobre esta Política o sobre cualquier asunto relacionado con el uso de cookies, puedes hacerlo a través de la siguiente dirección de correo electrónico: <a href="mailto:quizzmaker@outlook.com" className="text-purple-400 hover:underline">quizzmaker@outlook.com</a></p>
 
         <p className="text-sm text-gray-500 mt-8 pt-4 border-t border-gray-700/50">Última actualización de este documento: 10 de julio de 2025.</p>
       </div>

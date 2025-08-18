@@ -1,3 +1,4 @@
+// src/components/icons.tsx
 
 import React from 'react';
 
@@ -126,4 +127,12 @@ export const RetryIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
       <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
       <path d="M3 21v-5h5" />
     </svg>
+);
+
+// ¡NUEVO ICONO AÑADIDO!
+export const CreditCardIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="5" width="20" height="14" rx="2" />
+    <line x1="2" x2="22" y1="10" y2="10" />
+  </svg>
 );

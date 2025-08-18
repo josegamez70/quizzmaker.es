@@ -1,3 +1,4 @@
+// src/components/LoginView.tsx
 
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { supabase } from '../supabaseClient.ts';
@@ -93,7 +94,7 @@ export const AuthView: React.FC = () => {
           setShowConfigHelp(true);
       }
       setError(errorMessage);
-      setShowResend(true); 
+      setShowResend(true);
     } finally {
       setLoading(false);
     }
@@ -111,21 +112,21 @@ export const AuthView: React.FC = () => {
             if (error.message.includes('Email not confirmed')) {
                 setError('Tu cuenta aún no ha sido confirmada.');
                 setMessage('Por favor, busca el enlace en tu correo (revisa también el spam).');
-                setShowResend(true); 
-                return; 
+                setShowResend(true);
+                return;
             }
-            throw error; 
+            throw error;
         }
-      } else { 
+      } else {
         if (username.trim().length < 3) {
           throw new Error('El nombre de usuario debe tener al menos 3 caracteres.');
         }
-        
+
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: { 
+            data: {
               username: username.trim(),
               full_name: username.trim(),
             },
@@ -133,9 +134,9 @@ export const AuthView: React.FC = () => {
         });
 
         if (signUpError) throw signUpError;
-        
+
         await supabase.auth.signOut();
-        
+
         setMessage('¡Registro casi completo! Revisa tu correo electrónico (y la carpeta de spam) para encontrar el enlace de confirmación. Deberás hacer clic en él antes de poder iniciar sesión.');
         setShowResend(true);
       }
@@ -164,9 +165,9 @@ export const AuthView: React.FC = () => {
     resetState();
     try {
         const { error } = await supabase.auth.resetPasswordForEmail(email);
-        
+
         if (error) throw error;
-        
+
         setMessage('Si tu correo está registrado, recibirás un enlace de recuperación. No olvides revisar tu carpeta de spam.');
     } catch (err: any) {
         console.error("Error en restablecimiento de contraseña:", err);
@@ -247,11 +248,13 @@ export const AuthView: React.FC = () => {
         <>
             <div className="text-center">
               <LightbulbIcon className="w-16 h-16 text-yellow-300 mx-auto mb-4" />
+              {/* CAMBIO AQUI: Título principal "QUIZZMAKER" */}
               <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-purple-400">
-                {view === 'login' ? 'Bienvenido de Nuevo' : 'Crea tu Cuenta'}
+                QUIZZMAKER
               </h1>
+              {/* CAMBIO AQUI: Subtítulo para describir la acción */}
               <p className="mt-2 text-gray-400">
-                {view === 'login' ? 'Inicia sesión para continuar' : 'Únete para crear y guardar tus cuestionarios'}
+                {view === 'login' ? 'Bienvenido de Nuevo. Inicia sesión para continuar' : 'Crea tu Cuenta para empezar a crear y guardar tus cuestionarios'}
               </p>
             </div>
             <form className="space-y-4" onSubmit={handleAuth}>
@@ -290,7 +293,7 @@ export const AuthView: React.FC = () => {
                     {showPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
                 </button>
               </div>
-              
+
               {view === 'login' && (
                   <div className="flex items-center justify-end text-sm">
                       <button type="button" onClick={() => { setView('reset'); resetState(); }} className="font-medium text-indigo-400 hover:text-indigo-300">

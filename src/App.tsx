@@ -24,6 +24,8 @@ const ResultsView = lazy(() => import('./components/ResultsView.tsx'));
 const SavedQuizzesView = lazy(() => import('./components/SavedQuizzesView.tsx'));
 const UpdatePasswordView = lazy(() => import('./components/UpdatePasswordView.tsx'));
 const PrivacyPolicyView = lazy(() => import('./components/PrivacyPolicyView.tsx'));
+// ¡NUEVA IMPORTACIÓN!
+const FreeAttemptsExceededView = lazy(() => import('./components/FreeAttemptsExceededView.tsx')); // Asegúrate de que este archivo existe
 
 interface MainAppProps {
   session: Session;
@@ -38,14 +40,16 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
   const [score, setScore] = useState<number>(0);
   const [userAnswers, setUserAnswers] = useState<(string | null)[]>([]);
   const [error, setError] = useState<string>('');
-  const [profile, setProfile] = useState<{ username: string; is_pro?: boolean } | null>(null);
+  // MODIFICADO: Añade 'quiz_attempts' al tipo de 'profile'
+  const [profile, setProfile] = useState<{ username: string; is_pro?: boolean; quiz_attempts?: number } | null>(null);
   const userId = session.user.id;
 
   useEffect(() => {
     const fetchProfile = async () => {
       if (!userId) return;
       try {
-        const { data, error } = await supabase.from('profiles').select('username, is_pro').eq('id', userId).maybeSingle();
+        // MODIFICADO: Incluye 'quiz_attempts' en la selección
+        const { data, error } = await supabase.from('profiles').select('username, is_pro, quiz_attempts').eq('id', userId).maybeSingle();
         if (error) throw error;
         if (data) setProfile(data);
       } catch (caughtError: unknown) {
@@ -53,8 +57,10 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
         console.error("Error fetching profile:", message);
       }
     };
+    // MODIFICADO: Añade appState como dependencia para que el perfil se refetch al cambiar de estado (ej. al volver de límite excedido)
     fetchProfile();
-  }, [userId]);
+  }, [userId, appState]);
+
 
   const handleLogout = async () => {
     try {
@@ -82,8 +88,12 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
       return;
     }
 
-    const res = await fetch('/api/create-checkout-session', {
+    // Asegúrate de que esta URL coincida con tu Netlify Function
+    const res = await fetch('/.netlify/functions/create-checkout-session', {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({ userId: user.id, email: user.email }),
     });
 
@@ -104,16 +114,18 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     setError('');
 
     try {
+      // Siempre obtener el perfil más reciente antes de generar
+      // Esto es crucial para asegurar que 'quiz_attempts' e 'is_pro' estén actualizados
       const { data: profileData, error: profileError } = await supabase.from('profiles').select('quiz_attempts, is_pro').eq('id', userId).single();
       if (profileError) throw profileError;
 
-      const attempts = profileData.quiz_attempts || 0;
+      const attempts = profileData.quiz_attempts || 0; // Si es null o undefined, lo tratamos como 0
       const isPro = profileData.is_pro || false;
 
-      if (isPro || attempts < 4) {
-        if (!isPro) {
-          await supabase.from('profiles').update({ quiz_attempts: attempts + 1 }).eq('id', userId);
-        }
+      // MODIFICADO: Lógica de intentos gratuitos
+      if (isPro) {
+        // Si es Pro, permite la generación ilimitada
+        console.log("Usuario Pro, generando cuestionario ilimitado.");
         setAppState(AppState.GENERATING);
         const questions = await generateQuizFromImageAndText(files, numQuestions);
         if (questions && questions.length > 0) {
@@ -124,8 +136,24 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
         } else {
           throw new Error('No se pudieron generar preguntas. Intenta con un archivo diferente.');
         }
-      } else {
-        handleGoPro(); // Redirige automáticamente
+      } else if (attempts < 4) { // Si no es Pro y aún tiene intentos (0, 1, 2, 3)
+        // Incrementa el contador de intentos
+        await supabase.from('profiles').update({ quiz_attempts: attempts + 1 }).eq('id', userId);
+        console.log(`Usuario no Pro. Intento ${attempts + 1} de 4. Generando cuestionario.`);
+        setAppState(AppState.GENERATING);
+        const questions = await generateQuizFromImageAndText(files, numQuestions);
+        if (questions && questions.length > 0) {
+          setQuiz(shuffleArray(questions));
+          setUserAnswers(Array(questions.length).fill(null));
+          setScore(0);
+          setAppState(AppState.QUIZ);
+        } else {
+          throw new Error('No se pudieron generar preguntas. Intenta con un archivo diferente.');
+        }
+      } else { // Si no es Pro Y ha agotado los 4 intentos (attempts es 4 o más)
+        console.log("Usuario no Pro. Intentos agotados. Mostrando vista de límite.");
+        setAppState(AppState.LIMIT_REACHED); // ¡AQUÍ SE ESTABLECE EL NUEVO ESTADO!
+        // No llamamos a handleGoPro() aquí directamente; la nueva vista se encargará de ello.
       }
     } catch (caughtError: unknown) {
       const message = caughtError instanceof Error ? caughtError.message : 'Ocurrió un error desconocido.';
@@ -133,7 +161,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
       setError(message);
       setAppState(AppState.ERROR);
     }
-  }, [files, numQuestions, userId]);
+  }, [files, numQuestions, userId]); // Dependencias: files, numQuestions, userId
 
   const handleQuizFinish = (finalScore: number, finalAnswers: (string | null)[]) => {
     setScore(finalScore);
@@ -177,6 +205,8 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
       case AppState.ERROR: return (<div className="text-center p-8 bg-gray-800 rounded-lg"><h2 className="text-2xl font-bold text-red-500 mb-4">¡Oops! Algo salió mal</h2><p className="text-gray-300 mb-6">{error}</p><button onClick={handleRestart} className="px-6 py-2 bg-indigo-600">Intentar de Nuevo</button></div>);
       case AppState.SAVED_QUIZZES: return <SavedQuizzesView onViewQuiz={handleViewSavedQuiz} onGoHome={handleRestart} />;
       case AppState.PRIVACY: return <PrivacyPolicyView onGoBack={handleRestart} />;
+      // ¡NUEVO CASO PARA EL ESTADO DE LÍMITE ALCANZADO!
+      case AppState.LIMIT_REACHED: return <FreeAttemptsExceededView onGoPro={handleGoPro} onGoHome={handleRestart} />;
       case AppState.IDLE: default: return (<ImageUploader onFilesSelect={setFiles} onSubmit={handleQuizGeneration} numQuestions={numQuestions} onNumQuestionsChange={setNumQuestions} />);
     }
   };
@@ -184,7 +214,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center p-4">
       <header className="w-full max-w-5xl mx-auto mb-6 flex items-center justify-between print:hidden">
-        <div className="flex items-center gap-3"><LightbulbIcon className="w-10 h-10 text-yellow-300" /><h1 className="text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-purple-400">QUIZZ MAKER</h1></div>
+        <div className="flex items-center gap-3"><LightbulbIcon className="w-10 h-10 text-yellow-300" /><h1 className="text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-purple-400">QUIZZMAKER</h1></div> {/* Título principal cambiado */}
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-300 hidden sm:block" title={profile?.username || session.user.email}>Hola, <span className="font-semibold">{profile?.username || session.user.email?.split('@')[0]}</span></span>
           <button onClick={handleShowSaved} title="Mis Cuestionarios" className="flex items-center gap-2 p-3 rounded-md text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"><BookmarkIcon className="w-5 h-5"/><span className="hidden md:inline text-sm font-medium">Guardados</span></button>
