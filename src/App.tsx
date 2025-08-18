@@ -16,7 +16,8 @@ const shuffleArray = (array: Question[]): Question[] => {
   return newArray;
 };
 
-import { AuthView } => from './components/LoginView.tsx';
+// CORREGIDO: Eliminado ' =>' extra
+import { AuthView } from './components/LoginView.tsx';
 
 const ImageUploader = lazy(() => import('./components/ImageUploader.tsx'));
 const QuizView = lazy(() => import('./components/QuizView.tsx'));
