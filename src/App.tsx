@@ -16,7 +16,7 @@ const shuffleArray = (array: Question[]): Question[] => {
   return newArray;
 };
 
-import { AuthView } from './components/LoginView.tsx';
+import { AuthView } => from './components/LoginView.tsx';
 
 const ImageUploader = lazy(() => import('./components/ImageUploader.tsx'));
 const QuizView = lazy(() => import('./components/QuizView.tsx'));
@@ -207,7 +207,8 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           <h1 className="text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-purple-400">QUIZZMAKER</h1>
         </div>
         {/* INICIO DE MODIFICACIÓN PARA RESPONSIVIDAD DEL HEADER */}
-        <div className="flex items-center gap-2 sm:gap-4"> {/* gap-2 por defecto (móvil), sm:gap-4 para desktop */}
+        {/* MODIFICADO: gap-1 por defecto (móvil), sm:gap-4 para desktop */}
+        <div className="flex items-center gap-1 sm:gap-4">
           <span className="hidden sm:block text-sm text-gray-300" title={profile?.username || session.user.email}>
             Hola, <span className="font-semibold">{profile?.username || session.user.email?.split('@')[0]}</span>
           </span>
