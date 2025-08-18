@@ -228,7 +228,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
         Crea tu cuestionario en minutos. Sube un PDF o una imagen y la IA generará un desafío para ti.
       </p>
       <main className="w-full max-w-4xl mx-auto flex-grow flex items-center justify-center print:block"><Suspense fallback={<Loader text="Cargando vista..." />}>{renderContent()}</Suspense></main>
-      <footer className="w-full max-w-4xl mx-auto mt-6 pt-4 text-center text-gray-500 text-sm border-t border-gray-700/50 print:hidden"><button onClick={handleShowPrivacy} className="hover:text-indigo-400 transition-colors mb-2">Política de Privacidad y Cookies</button><p>© 2024 J M GAMEZ</p></footer>
+      <footer className="w-full max-w-4xl mx-auto mt-6 pt-4 text-center text-gray-500 text-sm border-t border-gray-700/50 print:hidden"><button onClick={handleShowPrivacy} className="hover:text-indigo-400 transition-colors mb-2">Política de Privacidad, Cookies y Contacto</button><p>© 2024 J M GAMEZ</p></footer>
     </div>
   );
 };
