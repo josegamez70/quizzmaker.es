@@ -57,7 +57,6 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     fetchProfile();
   }, [userId, appState]);
 
-
   const handleLogout = async () => {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -201,48 +200,51 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center p-4">
-      {/* MODIFICACIÓN: Header reestructurado para mejor responsividad en móvil */}
       <header className="w-full max-w-5xl mx-auto mb-6 flex flex-col sm:flex-row items-center justify-between print:hidden">
-        {/* Sección del título y logo */}
-        <div className="flex items-center gap-3 mb-4 sm:mb-0">
+        {/* Logo: al hacer click vuelve al inicio */}
+        <button
+          onClick={handleRestart}
+          className="flex items-center gap-3 mb-4 sm:mb-0 cursor-pointer focus:outline-none"
+          title="Ir a la página principal"
+        >
           <LightbulbIcon className="w-10 h-10 text-yellow-300" />
-          <h1 className="text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-purple-400">QUIZZMAKER</h1>
-        </div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-purple-400">
+            QUIZZMAKER
+          </h1>
+        </button>
 
         {/* Sección de los botones de navegación */}
-        {/* En móvil: Hola, [usuario] se oculta. Los botones se agrupan, con menos padding y solo iconos. */}
-        {/* En desktop: todo como antes (texto visible, más padding). */}
-        <div className="flex items-center w-full sm:w-auto justify-center sm:justify-end gap-2 px-2 sm:px-0"> {/* gap-2 para móvil, sm:gap-4 para desktop */}
-          
-          {/* Nombre de usuario: Oculto en móviles muy pequeños, visible a partir de sm. */}
+        <div className="flex items-center w-full sm:w-auto justify-center sm:justify-end gap-2 px-2 sm:px-0">
           <span className="hidden sm:block text-sm text-gray-300" title={profile?.username || session.user.email}>
             Hola, <span className="font-semibold">{profile?.username || session.user.email?.split('@')[0]}</span>
           </span>
 
-          {/* Botón Guardados: Más compacto en móvil (solo icono), texto visible en md+ */}
           <button onClick={handleShowSaved} title="Mis Cuestionarios" className="flex items-center gap-1 px-2 py-1 sm:gap-2 sm:p-3 rounded-md text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
             <BookmarkIcon className="w-5 h-5"/>
             <span className="hidden md:inline text-sm font-medium">Guardados</span>
           </button>
-          
-          {/* Botón Hazte Pro (solo si no es Pro): Más compacto en móvil (solo icono), texto visible en md+ */}
+
           {!profile?.is_pro && (
             <button onClick={handleGoPro} title="Hazte Pro" className="flex items-center gap-1 px-2 py-1 sm:gap-2 sm:p-3 rounded-md text-yellow-400 hover:bg-yellow-800 hover:text-white transition-colors">
               🚀 <span className="hidden md:inline text-sm font-medium">Hazte Pro</span>
             </button>
           )}
-          
-          {/* Botón Salir: Más compacto en móvil (solo icono), texto visible en md+ */}
+
           <button onClick={handleLogout} title="Cerrar Sesión" className="flex items-center gap-1 px-2 py-1 sm:gap-2 sm:p-3 rounded-md text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
             <LogoutIcon className="w-5 h-5"/>
             <span className="hidden md:inline text-sm font-medium">Salir</span>
           </button>
         </div>
       </header>
+
       <p className="w-full max-w-5xl mx-auto text-center -mt-2 mb-8 text-lg text-gray-400 print:hidden">
         Crea tu cuestionario en minutos. Sube un PDF o una imagen y la IA generará un desafío para ti.
       </p>
-      <main className="w-full max-w-4xl mx-auto flex-grow flex items-center justify-center print:block"><Suspense fallback={<Loader text="Cargando vista..." />}>{renderContent()}</Suspense></main>
+
+      <main className="w-full max-w-4xl mx-auto flex-grow flex items-center justify-center print:block">
+        <Suspense fallback={<Loader text="Cargando vista..." />}>{renderContent()}</Suspense>
+      </main>
+
       <footer className="w-full max-w-4xl mx-auto mt-6 pt-4 text-center text-gray-500 text-sm border-t border-gray-700/50 print:hidden">
         <button onClick={handleShowPrivacy} className="hover:text-indigo-400 transition-colors mb-2">
           Política de Privacidad, Cookies y Contacto
@@ -267,7 +269,9 @@ export function App() {
   const forceLogout = () => { setSession(null); setAuthEvent(null); };
   const handlePasswordUpdated = () => forceLogout();
 
-  if (loading) { return (<div className="min-h-screen bg-gray-900 flex items-center justify-center"><Loader text="Cargando sesión..." /></div>); }
+  if (loading) {
+    return (<div className="min-h-screen bg-gray-900 flex items-center justify-center"><Loader text="Cargando sesión..." /></div>);
+  }
 
   return (
     <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center"><Loader text="Cargando..." /></div>}>
