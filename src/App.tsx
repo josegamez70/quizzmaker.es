@@ -66,7 +66,6 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
       const { data: sessionData } = await supabase.auth.getSession();
       if (sessionData?.access_token) {
         await supabase.auth.signOut();
-        console.log("Sesión cerrada correctamente.");
       } else {
         console.warn("No hay sesión activa para cerrar.");
       }
@@ -89,18 +88,13 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
 
     const res = await fetch('/.netlify/functions/create-checkout-session', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: user.id, email: user.email }),
     });
 
     const { url } = await res.json();
-    if (url) {
-      window.location.href = url;
-    } else {
-      alert('Error al iniciar la compra. Intenta más tarde.');
-    }
+    if (url) window.location.href = url;
+    else alert('Error al iniciar la compra. Intenta más tarde.');
   };
 
   const handleQuizGeneration = useCallback(async () => {
@@ -130,9 +124,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           setUserAnswers(Array(questions.length).fill(null));
           setScore(0);
           setAppState(AppState.QUIZ);
-        } else {
-          throw new Error('No se pudieron generar preguntas.');
-        }
+        } else throw new Error('No se pudieron generar preguntas.');
       } else if (attempts < 4) {
         await supabase.from('profiles').update({ quiz_attempts: attempts + 1 }).eq('id', userId);
         setAppState(AppState.GENERATING);
@@ -142,9 +134,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           setUserAnswers(Array(questions.length).fill(null));
           setScore(0);
           setAppState(AppState.QUIZ);
-        } else {
-          throw new Error('No se pudieron generar preguntas.');
-        }
+        } else throw new Error('No se pudieron generar preguntas.');
       } else {
         setAppState(AppState.LIMIT_REACHED);
       }
@@ -205,6 +195,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center p-4">
       <header className="w-full max-w-5xl mx-auto mb-6 flex flex-col sm:flex-row items-center justify-between print:hidden">
+        {/* Logo: click => home */}
         <button
           onClick={handleRestart}
           className="flex items-center gap-3 mb-4 sm:mb-0 cursor-pointer focus:outline-none"
@@ -273,17 +264,28 @@ export function App() {
   }, []);
 
   const forceLogout = () => { setSession(null); setAuthEvent(null); };
-  const handlePasswordUpdated = () => forceLogout();
+  const handlePasswordUpdated = () => {
+    // Limpia la URL tras cambiar la contraseña
+    try { window.history.replaceState({}, '', '/'); } catch {}
+    forceLogout();
+  };
 
   if (loading) {
     return (<div className="min-h-screen bg-gray-900 flex items-center justify-center"><Loader text="Cargando sesión..." /></div>);
   }
 
-  const location = window.location.pathname;
+  // ✅ Detectar enlace de recuperación de Supabase:
+  // - Ruta /reset-password
+  // - Param "type=recovery" o "type=rp" en query o hash (#)
+  const { pathname, search, hash } = window.location;
+  const urlFlags = (search + '&' + hash.replace(/^#/, '')).toLowerCase();
+  const isRecoveryByPath = pathname.startsWith('/reset-password');
+  const isRecoveryByFlags = urlFlags.includes('type=recovery') || urlFlags.includes('type=rp');
+  const forceRecovery = isRecoveryByPath || isRecoveryByFlags;
 
   return (
     <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center"><Loader text="Cargando..." /></div>}>
-      {location.startsWith('/reset-password') ? (
+      {forceRecovery ? (
         <UpdatePasswordView onPasswordUpdated={handlePasswordUpdated} />
       ) : session && authEvent === 'PASSWORD_RECOVERY' ? (
         <UpdatePasswordView onPasswordUpdated={handlePasswordUpdated} />
