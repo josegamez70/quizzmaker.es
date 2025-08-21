@@ -24,7 +24,7 @@ const ResultsView = lazy(() => import('./components/ResultsView.tsx'));
 const SavedQuizzesView = lazy(() => import('./components/SavedQuizzesView.tsx'));
 const UpdatePasswordView = lazy(() => import('./components/UpdatePasswordView.tsx'));
 const PrivacyPolicyView = lazy(() => import('./components/PrivacyPolicyView.tsx'));
-const FreeAttemptsExceededView = lazy(() => import('./components/FreeAttemptsExceededView.tsx')); // Asegúrate de que este archivo existe
+const FreeAttemptsExceededView = lazy(() => import('./components/FreeAttemptsExceededView.tsx'));
 
 interface MainAppProps {
   session: Session;
@@ -46,7 +46,11 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     const fetchProfile = async () => {
       if (!userId) return;
       try {
-        const { data, error } = await supabase.from('profiles').select('username, is_pro, quiz_attempts').eq('id', userId).maybeSingle();
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('username, is_pro, quiz_attempts')
+          .eq('id', userId)
+          .maybeSingle();
         if (error) throw error;
         if (data) setProfile(data);
       } catch (caughtError: unknown) {
@@ -108,14 +112,17 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     setError('');
 
     try {
-      const { data: profileData, error: profileError } = await supabase.from('profiles').select('quiz_attempts, is_pro').eq('id', userId).single();
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('quiz_attempts, is_pro')
+        .eq('id', userId)
+        .single();
       if (profileError) throw profileError;
 
       const attempts = profileData.quiz_attempts || 0;
       const isPro = profileData.is_pro || false;
 
       if (isPro) {
-        console.log("Usuario Pro, generando cuestionario ilimitado.");
         setAppState(AppState.GENERATING);
         const questions = await generateQuizFromImageAndText(files, numQuestions);
         if (questions && questions.length > 0) {
@@ -124,11 +131,10 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           setScore(0);
           setAppState(AppState.QUIZ);
         } else {
-          throw new Error('No se pudieron generar preguntas. Intenta con un archivo diferente.');
+          throw new Error('No se pudieron generar preguntas.');
         }
       } else if (attempts < 4) {
         await supabase.from('profiles').update({ quiz_attempts: attempts + 1 }).eq('id', userId);
-        console.log(`Usuario no Pro. Intento ${attempts + 1} de 4. Generando cuestionario.`);
         setAppState(AppState.GENERATING);
         const questions = await generateQuizFromImageAndText(files, numQuestions);
         if (questions && questions.length > 0) {
@@ -137,15 +143,13 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           setScore(0);
           setAppState(AppState.QUIZ);
         } else {
-          throw new Error('No se pudieron generar preguntas. Intenta con un archivo diferente.');
+          throw new Error('No se pudieron generar preguntas.');
         }
       } else {
-        console.log("Usuario no Pro. Intentos agotados. Mostrando vista de límite.");
         setAppState(AppState.LIMIT_REACHED);
       }
     } catch (caughtError: unknown) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Ocurrió un error desconocido.';
-      console.error(caughtError);
+      const message = caughtError instanceof Error ? caughtError.message : 'Ocurrió un error.';
       setError(message);
       setAppState(AppState.ERROR);
     }
@@ -201,7 +205,6 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center p-4">
       <header className="w-full max-w-5xl mx-auto mb-6 flex flex-col sm:flex-row items-center justify-between print:hidden">
-        {/* Logo: al hacer click vuelve al inicio */}
         <button
           onClick={handleRestart}
           className="flex items-center gap-3 mb-4 sm:mb-0 cursor-pointer focus:outline-none"
@@ -213,7 +216,6 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           </h1>
         </button>
 
-        {/* Sección de los botones de navegación */}
         <div className="flex items-center w-full sm:w-auto justify-center sm:justify-end gap-2 px-2 sm:px-0">
           <span className="hidden sm:block text-sm text-gray-300" title={profile?.username || session.user.email}>
             Hola, <span className="font-semibold">{profile?.username || session.user.email?.split('@')[0]}</span>
@@ -262,7 +264,11 @@ export function App() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => { setSession(session); setLoading(false); });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setAuthEvent(_event); setSession(session); setLoading(false); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthEvent(_event);
+      setSession(session);
+      setLoading(false);
+    });
     return () => subscription.unsubscribe();
   }, []);
 
@@ -273,9 +279,13 @@ export function App() {
     return (<div className="min-h-screen bg-gray-900 flex items-center justify-center"><Loader text="Cargando sesión..." /></div>);
   }
 
+  const location = window.location.pathname;
+
   return (
     <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center"><Loader text="Cargando..." /></div>}>
-      {session && authEvent === 'PASSWORD_RECOVERY' ? (
+      {location.startsWith('/reset-password') ? (
+        <UpdatePasswordView onPasswordUpdated={handlePasswordUpdated} />
+      ) : session && authEvent === 'PASSWORD_RECOVERY' ? (
         <UpdatePasswordView onPasswordUpdated={handlePasswordUpdated} />
       ) : session ? (
         <MainApp session={session} forceLogout={forceLogout} />
