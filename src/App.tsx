@@ -261,17 +261,46 @@ export function App() {
   const [authEvent, setAuthEvent] = useState<AuthChangeEvent | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => { setSession(session); setLoading(false); });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setAuthEvent(_event); setSession(session); setLoading(false); });
-    return () => subscription.unsubscribe();
-  }, []);
+    const handleInitialSession = async () => {
+      // 1. Obtener la sesión y el evento actual (si existe)
+      const { data: { session: initialSession, event: initialEvent } } = await supabase.auth.getSession();
+      
+      setSession(initialSession);
+      // Establecer initialEvent solo si es un evento relevante para el estado inicial (como PASSWORD_RECOVERY)
+      // Evitamos sobrescribir con 'SIGNED_IN' si queremos esperar a onAuthStateChange para manejarlo
+      if (initialEvent === 'PASSWORD_RECOVERY') {
+        setAuthEvent(initialEvent);
+      }
+      setLoading(false);
+    };
 
-  const forceLogout = () => { setSession(null); setAuthEvent(null); };
+    handleInitialSession();
+
+    // 2. Suscribirse a cambios en el estado de autenticación
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+      console.log("Auth State Change detected:", _event, currentSession); // Para depuración
+      setAuthEvent(_event);
+      setSession(currentSession);
+      setLoading(false); // Asegúrate de que loading se apague aquí también
+    });
+
+    return () => subscription.unsubscribe();
+  }, []); // El efecto se ejecuta solo una vez al montar el componente
+
+  const forceLogout = () => { 
+    setSession(null); 
+    setAuthEvent(null); 
+    // Opcional: limpiar la URL de tokens de Supabase si quedan
+    // window.history.replaceState({}, document.title, window.location.pathname);
+  };
   const handlePasswordUpdated = () => forceLogout();
 
   if (loading) {
     return (<div className="min-h-screen bg-gray-900 flex items-center justify-center"><Loader text="Cargando sesión..." /></div>);
   }
+
+  // Debugging log
+  console.log("Rendering App with:", { session, authEvent });
 
   return (
     <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center"><Loader text="Cargando..." /></div>}>
