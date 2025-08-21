@@ -355,7 +355,7 @@ export const AuthView: React.FC = () => {
               {renderContent()}
               <footer className="text-center text-gray-500 text-sm pt-2">
                   <button onClick={() => setShowPrivacy(true)} className="hover:text-indigo-400 transition-colors mb-2">
-                    Política de Privacidad y Cookies
+                    Política de Privacidad, Cookies y Contacto
                   </button>
                   <p>&copy; 2024 J M GAMEZ</p>
               </footer>
