@@ -22,7 +22,8 @@ const ImageUploader = lazy(() => import('./components/ImageUploader.tsx'));
 const QuizView = lazy(() => import('./components/QuizView.tsx'));
 const ResultsView = lazy(() => import('./components/ResultsView.tsx'));
 const SavedQuizzesView = lazy(() => import('./components/SavedQuizzesView.tsx'));
-const UpdatePasswordView = lazy(() => import('./components/UpdatePasswordView.tsx'));
+// ⛔️ Antes era lazy, ahora import normal para evitar bloqueos en recuperación
+import UpdatePasswordView from './components/UpdatePasswordView.tsx';
 const PrivacyPolicyView = lazy(() => import('./components/PrivacyPolicyView.tsx'));
 const FreeAttemptsExceededView = lazy(() => import('./components/FreeAttemptsExceededView.tsx'));
 
@@ -195,7 +196,6 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center p-4">
       <header className="w-full max-w-5xl mx-auto mb-6 flex flex-col sm:flex-row items-center justify-between print:hidden">
-        {/* Logo: click => home */}
         <button
           onClick={handleRestart}
           className="flex items-center gap-3 mb-4 sm:mb-0 cursor-pointer focus:outline-none"
@@ -265,7 +265,6 @@ export function App() {
 
   const forceLogout = () => { setSession(null); setAuthEvent(null); };
   const handlePasswordUpdated = () => {
-    // Limpia la URL tras cambiar la contraseña
     try { window.history.replaceState({}, '', '/'); } catch {}
     forceLogout();
   };
@@ -274,9 +273,7 @@ export function App() {
     return (<div className="min-h-screen bg-gray-900 flex items-center justify-center"><Loader text="Cargando sesión..." /></div>);
   }
 
-  // ✅ Detectar enlace de recuperación de Supabase:
-  // - Ruta /reset-password
-  // - Param "type=recovery" o "type=rp" en query o hash (#)
+  // ✅ Detección robusta del enlace de recovery
   const { pathname, search, hash } = window.location;
   const urlFlags = (search + '&' + hash.replace(/^#/, '')).toLowerCase();
   const isRecoveryByPath = pathname.startsWith('/reset-password');
@@ -284,16 +281,17 @@ export function App() {
   const forceRecovery = isRecoveryByPath || isRecoveryByFlags;
 
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center"><Loader text="Cargando..." /></div>}>
-      {forceRecovery ? (
-        <UpdatePasswordView onPasswordUpdated={handlePasswordUpdated} />
-      ) : session && authEvent === 'PASSWORD_RECOVERY' ? (
-        <UpdatePasswordView onPasswordUpdated={handlePasswordUpdated} />
-      ) : session ? (
+    // UpdatePasswordView ya NO es lazy; se renderiza sin Suspense
+    forceRecovery ? (
+      <UpdatePasswordView onPasswordUpdated={handlePasswordUpdated} />
+    ) : session && authEvent === 'PASSWORD_RECOVERY' ? (
+      <UpdatePasswordView onPasswordUpdated={handlePasswordUpdated} />
+    ) : session ? (
+      <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center"><Loader text="Cargando..." /></div>}>
         <MainApp session={session} forceLogout={forceLogout} />
-      ) : (
-        <AuthView />
-      )}
-    </Suspense>
+      </Suspense>
+    ) : (
+      <AuthView />
+    )
   );
 }
