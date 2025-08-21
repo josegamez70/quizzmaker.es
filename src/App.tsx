@@ -258,55 +258,54 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [authEvent, setAuthEvent] = useState<AuthChangeEvent | null>(null);
+  // Eliminamos authEvent aquí porque App.tsx ya no lo gestionará para PASSWORD_RECOVERY
+  // const [authEvent, setAuthEvent] = useState<AuthChangeEvent | null>(null); 
 
   useEffect(() => {
     const handleInitialSession = async () => {
-      // 1. Obtener la sesión y el evento actual (si existe)
-      const { data: { session: initialSession, event: initialEvent } } = await supabase.auth.getSession();
-      
+      // Obtenemos la sesión inicial. No necesitamos 'event' aquí ya que la ruta /update-password lo maneja.
+      const { data: { session: initialSession } } = await supabase.auth.getSession();
       setSession(initialSession);
-      // Establecer initialEvent solo si es un evento relevante para el estado inicial (como PASSWORD_RECOVERY)
-      // Evitamos sobrescribir con 'SIGNED_IN' si queremos esperar a onAuthStateChange para manejarlo
-      if (initialEvent === 'PASSWORD_RECOVERY') {
-        setAuthEvent(initialEvent);
-      }
       setLoading(false);
     };
 
     handleInitialSession();
 
-    // 2. Suscribirse a cambios en el estado de autenticación
+    // El onAuthStateChange sigue siendo importante para otros eventos (SIGNED_IN, SIGNED_OUT)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
-      console.log("Auth State Change detected:", _event, currentSession); // Para depuración
-      setAuthEvent(_event);
+      console.log("Auth State Change detected in App.tsx:", _event, currentSession);
       setSession(currentSession);
-      setLoading(false); // Asegúrate de que loading se apague aquí también
+      setLoading(false);
+      // Opcional: Si por alguna razón el usuario llega a App.tsx con un evento PASSWORD_RECOVERY
+      // y no ha pasado por la ruta dedicada, podrías forzar la redirección aquí.
+      // Pero lo ideal es que el `redirectTo` en LoginView ya los dirija correctamente.
+      // if (_event === 'PASSWORD_RECOVERY' && window.location.pathname !== '/update-password') {
+      //   window.location.href = '/update-password';
+      // }
     });
 
     return () => subscription.unsubscribe();
-  }, []); // El efecto se ejecuta solo una vez al montar el componente
+  }, []);
 
   const forceLogout = () => { 
     setSession(null); 
-    setAuthEvent(null); 
-    // Opcional: limpiar la URL de tokens de Supabase si quedan
-    // window.history.replaceState({}, document.title, window.location.pathname);
+    // Al hacer logout, limpiamos el hash de la URL si existe (ej. #access_token=...)
+    window.history.replaceState({}, document.title, window.location.pathname);
   };
-  const handlePasswordUpdated = () => forceLogout();
+  // handlePasswordUpdated ya no es necesario aquí, ya que UpdatePasswordView redirige directamente
+  // const handlePasswordUpdated = () => forceLogout(); 
 
   if (loading) {
     return (<div className="min-h-screen bg-gray-900 flex items-center justify-center"><Loader text="Cargando sesión..." /></div>);
   }
 
   // Debugging log
-  console.log("Rendering App with:", { session, authEvent });
+  console.log("Rendering App with:", { session });
 
   return (
     <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center"><Loader text="Cargando..." /></div>}>
-      {session && authEvent === 'PASSWORD_RECOVERY' ? (
-        <UpdatePasswordView onPasswordUpdated={handlePasswordUpdated} />
-      ) : session ? (
+      {/* App.tsx ahora solo se encarga de mostrar la MainApp o AuthView */}
+      {session ? (
         <MainApp session={session} forceLogout={forceLogout} />
       ) : (
         <AuthView />

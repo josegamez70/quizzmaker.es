@@ -88,13 +88,13 @@ export const AuthView: React.FC = () => {
       let errorMessage: string;
       if (isRateLimitError(err)) {
           errorMessage = 'Límite de reenvío de correos excedido. Por favor, espera a que el contador finalice.';
-          startCooldown(60);
       } else {
           errorMessage = 'No se pudo enviar el correo. Por favor, revisa la guía de configuración.';
           setShowConfigHelp(true);
       }
       setError(errorMessage);
       setShowResend(true);
+      startCooldown(60); 
     } finally {
       setLoading(false);
     }
@@ -135,7 +135,7 @@ export const AuthView: React.FC = () => {
 
         if (signUpError) throw signUpError;
 
-        await supabase.auth.signOut();
+        await supabase.auth.signOut(); 
 
         setMessage('¡Registro casi completo! Revisa tu correo electrónico (y la carpeta de spam) para encontrar el enlace de confirmación. Deberás hacer clic en él antes de poder iniciar sesión.');
         setShowResend(true);
@@ -164,7 +164,12 @@ export const AuthView: React.FC = () => {
     setLoading(true);
     resetState();
     try {
-        const { error } = await supabase.auth.resetPasswordForEmail(email);
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            // *** CAMBIO CLAVE AQUÍ: REDIRECCIÓN ESPECÍFICA ***
+            // La URL 'https://quizzmaker.es/update-password' DEBE ESTAR configurada en las "Redirect URLs" de Supabase
+            // y ser EXACTAMENTE la URL donde se renderizará UpdatePasswordView.
+            redirectTo: 'https://quizzmaker.es/update-password',
+        });
 
         if (error) throw error;
 
@@ -184,7 +189,6 @@ export const AuthView: React.FC = () => {
         setLoading(false);
     }
   }
-
 
   const renderContent = () => {
     const alertBox = (
@@ -248,11 +252,9 @@ export const AuthView: React.FC = () => {
         <>
             <div className="text-center">
               <LightbulbIcon className="w-16 h-16 text-yellow-300 mx-auto mb-4" />
-              {/* CAMBIO AQUI: Título principal "QUIZZMAKER" */}
               <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-purple-400">
                 QUIZZMAKER
               </h1>
-              {/* CAMBIO AQUI: Subtítulo para describir la acción */}
               <p className="mt-2 text-gray-400">
                 {view === 'login' ? 'Bienvenido de Nuevo. Inicia sesión para continuar' : 'Crea tu Cuenta para empezar a crear y guardar tus cuestionarios'}
               </p>

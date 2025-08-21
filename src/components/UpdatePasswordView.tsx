@@ -1,10 +1,11 @@
+// src/components/UpdatePasswordView.tsx
 
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient.ts';
 import { LightbulbIcon, EyeIcon, EyeOffIcon, MailIcon, XCircleIcon } from './icons.tsx';
 
 interface UpdatePasswordViewProps {
-  onPasswordUpdated: () => void;
+  onPasswordUpdated: () => void; // Esta prop ahora solo debe manejar la redirección final
 }
 
 const UpdatePasswordView: React.FC<UpdatePasswordViewProps> = ({ onPasswordUpdated }) => {
@@ -27,12 +28,17 @@ const UpdatePasswordView: React.FC<UpdatePasswordViewProps> = ({ onPasswordUpdat
     }
 
     try {
+      // Supabase automáticamente detecta el token de la URL si estás en una redirect URL
+      // para restablecimiento de contraseña.
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       setMessage('¡Contraseña actualizada con éxito! En breve serás redirigido para iniciar sesión.');
       
       setTimeout(() => {
-        onPasswordUpdated();
+        // Limpia cualquier token de Supabase en la URL después de la actualización exitosa
+        // Esto es crucial para que la URL se vea limpia y no intente reautenticar al cargar /
+        window.history.replaceState({}, document.title, window.location.pathname);
+        onPasswordUpdated(); // Llama a la prop que redirigirá a la página de login
       }, 2500);
 
     } catch (err: any) {
