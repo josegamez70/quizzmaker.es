@@ -22,10 +22,9 @@ const ImageUploader = lazy(() => import('./components/ImageUploader.tsx'));
 const QuizView = lazy(() => import('./components/QuizView.tsx'));
 const ResultsView = lazy(() => import('./components/ResultsView.tsx'));
 const SavedQuizzesView = lazy(() => import('./components/SavedQuizzesView.tsx'));
-// ⛔️ Antes era lazy, ahora import normal para evitar bloqueos en recuperación
-import UpdatePasswordView from './components/UpdatePasswordView.tsx';
+const UpdatePasswordView = lazy(() => import('./components/UpdatePasswordView.tsx'));
 const PrivacyPolicyView = lazy(() => import('./components/PrivacyPolicyView.tsx'));
-const FreeAttemptsExceededView = lazy(() => import('./components/FreeAttemptsExceededView.tsx'));
+const FreeAttemptsExceededView = lazy(() => import('./components/FreeAttemptsExceededView.tsx')); // Asegúrate de que este archivo existe
 
 interface MainAppProps {
   session: Session;
@@ -47,11 +46,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     const fetchProfile = async () => {
       if (!userId) return;
       try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('username, is_pro, quiz_attempts')
-          .eq('id', userId)
-          .maybeSingle();
+        const { data, error } = await supabase.from('profiles').select('username, is_pro, quiz_attempts').eq('id', userId).maybeSingle();
         if (error) throw error;
         if (data) setProfile(data);
       } catch (caughtError: unknown) {
@@ -67,6 +62,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
       const { data: sessionData } = await supabase.auth.getSession();
       if (sessionData?.access_token) {
         await supabase.auth.signOut();
+        console.log("Sesión cerrada correctamente.");
       } else {
         console.warn("No hay sesión activa para cerrar.");
       }
@@ -89,13 +85,18 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
 
     const res = await fetch('/.netlify/functions/create-checkout-session', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({ userId: user.id, email: user.email }),
     });
 
     const { url } = await res.json();
-    if (url) window.location.href = url;
-    else alert('Error al iniciar la compra. Intenta más tarde.');
+    if (url) {
+      window.location.href = url;
+    } else {
+      alert('Error al iniciar la compra. Intenta más tarde.');
+    }
   };
 
   const handleQuizGeneration = useCallback(async () => {
@@ -107,17 +108,14 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     setError('');
 
     try {
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('quiz_attempts, is_pro')
-        .eq('id', userId)
-        .single();
+      const { data: profileData, error: profileError } = await supabase.from('profiles').select('quiz_attempts, is_pro').eq('id', userId).single();
       if (profileError) throw profileError;
 
       const attempts = profileData.quiz_attempts || 0;
       const isPro = profileData.is_pro || false;
 
       if (isPro) {
+        console.log("Usuario Pro, generando cuestionario ilimitado.");
         setAppState(AppState.GENERATING);
         const questions = await generateQuizFromImageAndText(files, numQuestions);
         if (questions && questions.length > 0) {
@@ -125,9 +123,12 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           setUserAnswers(Array(questions.length).fill(null));
           setScore(0);
           setAppState(AppState.QUIZ);
-        } else throw new Error('No se pudieron generar preguntas.');
+        } else {
+          throw new Error('No se pudieron generar preguntas. Intenta con un archivo diferente.');
+        }
       } else if (attempts < 4) {
         await supabase.from('profiles').update({ quiz_attempts: attempts + 1 }).eq('id', userId);
+        console.log(`Usuario no Pro. Intento ${attempts + 1} de 4. Generando cuestionario.`);
         setAppState(AppState.GENERATING);
         const questions = await generateQuizFromImageAndText(files, numQuestions);
         if (questions && questions.length > 0) {
@@ -135,12 +136,16 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           setUserAnswers(Array(questions.length).fill(null));
           setScore(0);
           setAppState(AppState.QUIZ);
-        } else throw new Error('No se pudieron generar preguntas.');
+        } else {
+          throw new Error('No se pudieron generar preguntas. Intenta con un archivo diferente.');
+        }
       } else {
+        console.log("Usuario no Pro. Intentos agotados. Mostrando vista de límite.");
         setAppState(AppState.LIMIT_REACHED);
       }
     } catch (caughtError: unknown) {
-      const message = caughtError instanceof Error ? caughtError.message : 'Ocurrió un error.';
+      const message = caughtError instanceof Error ? caughtError.message : 'Ocurrió un error desconocido.';
+      console.error(caughtError);
       setError(message);
       setAppState(AppState.ERROR);
     }
@@ -196,6 +201,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center p-4">
       <header className="w-full max-w-5xl mx-auto mb-6 flex flex-col sm:flex-row items-center justify-between print:hidden">
+        {/* Logo: al hacer click vuelve al inicio */}
         <button
           onClick={handleRestart}
           className="flex items-center gap-3 mb-4 sm:mb-0 cursor-pointer focus:outline-none"
@@ -207,6 +213,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           </h1>
         </button>
 
+        {/* Sección de los botones de navegación */}
         <div className="flex items-center w-full sm:w-auto justify-center sm:justify-end gap-2 px-2 sm:px-0">
           <span className="hidden sm:block text-sm text-gray-300" title={profile?.username || session.user.email}>
             Hola, <span className="font-semibold">{profile?.username || session.user.email?.split('@')[0]}</span>
@@ -255,43 +262,26 @@ export function App() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => { setSession(session); setLoading(false); });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthEvent(_event);
-      setSession(session);
-      setLoading(false);
-    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setAuthEvent(_event); setSession(session); setLoading(false); });
     return () => subscription.unsubscribe();
   }, []);
 
   const forceLogout = () => { setSession(null); setAuthEvent(null); };
-  const handlePasswordUpdated = () => {
-    try { window.history.replaceState({}, '', '/'); } catch {}
-    forceLogout();
-  };
+  const handlePasswordUpdated = () => forceLogout();
 
   if (loading) {
     return (<div className="min-h-screen bg-gray-900 flex items-center justify-center"><Loader text="Cargando sesión..." /></div>);
   }
 
-  // ✅ Detección robusta del enlace de recovery
-  const { pathname, search, hash } = window.location;
-  const urlFlags = (search + '&' + hash.replace(/^#/, '')).toLowerCase();
-  const isRecoveryByPath = pathname.startsWith('/reset-password');
-  const isRecoveryByFlags = urlFlags.includes('type=recovery') || urlFlags.includes('type=rp');
-  const forceRecovery = isRecoveryByPath || isRecoveryByFlags;
-
   return (
-    // UpdatePasswordView ya NO es lazy; se renderiza sin Suspense
-    forceRecovery ? (
-      <UpdatePasswordView onPasswordUpdated={handlePasswordUpdated} />
-    ) : session && authEvent === 'PASSWORD_RECOVERY' ? (
-      <UpdatePasswordView onPasswordUpdated={handlePasswordUpdated} />
-    ) : session ? (
-      <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center"><Loader text="Cargando..." /></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center"><Loader text="Cargando..." /></div>}>
+      {session && authEvent === 'PASSWORD_RECOVERY' ? (
+        <UpdatePasswordView onPasswordUpdated={handlePasswordUpdated} />
+      ) : session ? (
         <MainApp session={session} forceLogout={forceLogout} />
-      </Suspense>
-    ) : (
-      <AuthView />
-    )
+      ) : (
+        <AuthView />
+      )}
+    </Suspense>
   );
 }
