@@ -62,7 +62,7 @@ const handler: Handler = async (event) => {
   ]
 }`
     });
-
+// ¡Este comentario extra es solo para forzar un nuevo hash de archivo en Netlify!
     const result = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
       contents: [{ parts }],
