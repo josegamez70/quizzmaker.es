@@ -3,7 +3,7 @@ import { Question } from '../types.ts';
 const GEMINI_API_KEY = import.meta.env.VITE_API_KEY;
 // 🔹 Usamos el modelo rápido y actual
 const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
 /**
  * Genera un cuestionario a partir de un PDF o imagen usando Gemini.
