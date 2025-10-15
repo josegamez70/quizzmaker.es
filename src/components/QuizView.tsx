@@ -161,4 +161,32 @@ const QuizView: React.FC<QuizViewProps> = ({
         ))}
       </div>
 
-      {isAnswered && selectedAnswer?.trim().toLowerCase() !== c
+      {isAnswered && selectedAnswer?.trim().toLowerCase() !== currentQuestion.answer.trim().toLowerCase() && currentQuestion.context && (
+        <div className="mt-4 p-4 bg-gray-900 rounded-lg border border-gray-700">
+          <p className="text-sm text-gray-400 mb-1">Fragmento del documento:</p>
+          <p className="text-gray-200 text-sm italic">{currentQuestion.context}</p>
+        </div>
+      )}
+
+      {/* Botón Guardar centralizado */}
+      <div className="flex justify-center items-center mt-6">
+          <button
+              onClick={handleSaveClick}
+              className="px-6 py-3 bg-yellow-600 text-white font-semibold rounded-lg hover:bg-yellow-700 transition-colors shadow-lg"
+              title="Guarda tu progreso para continuar más tarde"
+          >
+              Guardar
+          </button>
+      </div>
+
+      <div className="mt-6 h-1 w-full bg-gray-700 rounded-full">
+        <div
+          className="h-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
+          style={{ width: `${((currentQuestionIndex + (isAnswered ? 1 : 0)) / questions.length) * 100}%` }}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default QuizView;
