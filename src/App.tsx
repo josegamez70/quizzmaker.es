@@ -354,7 +354,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = true);
+ const [loading, setLoading] = useState(true); // <<-- CORRECCIÓN AQUÍ
 
   useEffect(() => {
     const handleInitialSession = async () => {
