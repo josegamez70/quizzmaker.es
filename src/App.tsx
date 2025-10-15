@@ -38,7 +38,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
   const [quiz, setQuiz] = useState<Question[]>([]);
   const [score, setScore] = useState<number>(0);
   const [userAnswers, setUserAnswers] = useState<(string | null)[]>([]); // Se mantiene aquí para ResultsView y para pasar a QuizView
-  const [currentQuizId, setCurrentQuizId] = useState<string | null>(null); // ✨ CLAVE: ID del quiz que se está jugando/viendo
+  const [currentQuizId, setCurrentQuizId] = useState<string | null>(null); // CLAVE: ID del quiz que se está jugando/viendo
   const [error, setError] = useState<string>('');
   const [profile, setProfile] = useState<{ username: string; is_pro?: boolean; quiz_attempts?: number } | null>(null);
   const userId = session.user.id;
@@ -100,8 +100,9 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     }
   };
 
-  // ✨ MODIFICACIÓN: handleSaveQuizInProgress ahora maneja INSERT y UPDATE y actualiza currentQuizId
+  // MODIFICACIÓN: handleSaveQuizInProgress ahora maneja INSERT y UPDATE y actualiza currentQuizId
   const handleSaveQuizInProgress = useCallback(async (currentQuiz: Question[], currentAnswers: (string | null)[], currentScore: number) => {
+    console.log("Guardando quiz. currentQuizId:", currentQuizId); // ✨ AÑADE ESTE CONSOLE.LOG PARA DEPURACIÓN
     try {
       if (!userId) {
         alert('Debes iniciar sesión para guardar cuestionarios.');
@@ -116,7 +117,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           score: currentScore,
           // Mantener el título existente si el quiz ya tiene uno, de lo contrario, generar uno nuevo.
           // Para simplificar, aquí siempre generamos uno si es un update de "in progreso".
-          title: `Cuestionario en progreso (${new Date().toLocaleDateString()})`, 
+          title: `Cuestionario en progreso (${new Date().toLocaleDateString()})`,
           is_completed: false, // Asegurarse de que sigue en progreso
           total_questions: currentQuiz.length,
         }).eq('id', currentQuizId);
@@ -137,7 +138,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
         }).select('id').single(); // Pedimos el ID de vuelta
 
         if (error) throw error;
-        setCurrentQuizId(data.id); // ✨ Actualizamos el ID del quiz actual en App.tsx para futuras actualizaciones
+        setCurrentQuizId(data.id); // Actualizamos el ID del quiz actual en App.tsx
         alert('Cuestionario guardado exitosamente. Puedes continuar más tarde.');
       }
     } catch (caughtError: unknown) {
@@ -171,7 +172,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           setQuiz(shuffleArray(questions));
           setUserAnswers(Array(questions.length).fill(null)); // Mantener para ResultsView
           setScore(0); // Mantener para ResultsView
-          setCurrentQuizId(null); // ✨ CLAVE: Limpiar el ID del quiz actual al generar uno nuevo
+          setCurrentQuizId(null); // CLAVE: Limpiar el ID del quiz actual al generar uno nuevo
           setAppState(AppState.QUIZ);
         } else {
           throw new Error('No se pudieron generar preguntas. Intenta con un archivo diferente.');
@@ -185,7 +186,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           setQuiz(shuffleArray(questions));
           setUserAnswers(Array(questions.length).fill(null)); // Mantener para ResultsView
           setScore(0); // Mantener para ResultsView
-          setCurrentQuizId(null); // ✨ CLAVE: Limpiar el ID del quiz actual al generar uno nuevo
+          setCurrentQuizId(null); // CLAVE: Limpiar el ID del quiz actual al generar uno nuevo
           setAppState(AppState.QUIZ);
         } else {
           throw new Error('No se pudieron generar preguntas. Intenta con un archivo diferente.');
@@ -202,12 +203,12 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     }
   }, [files, numQuestions, userId]);
 
-  // ✨ MODIFICACIÓN: handleQuizFinish ahora acepta un id de quiz opcional
+  // MODIFICACIÓN: handleQuizFinish ahora acepta un id de quiz opcional
   const handleQuizFinish = async (finalScore: number, finalAnswers: (string | null)[], quizId: string | null = null) => {
     setScore(finalScore);
     setUserAnswers(finalAnswers);
     setAppState(AppState.RESULTS);
-    setCurrentQuizId(null); // ✨ CLAVE: Limpiar el ID del quiz actual al finalizarlo
+    setCurrentQuizId(null); // CLAVE: Limpiar el ID del quiz actual al finalizarlo
 
     try {
       if (userId) {
@@ -246,7 +247,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     setUserAnswers([]);
     setError('');
     setNumQuestions(10);
-    setCurrentQuizId(null); // ✨ CLAVE: Limpiar el ID del quiz actual al reiniciar
+    setCurrentQuizId(null); // CLAVE: Limpiar el ID del quiz actual al reiniciar
   };
 
   const handleReshuffle = () => {
@@ -254,23 +255,23 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
       setQuiz(shuffleArray(quiz));
       setUserAnswers(Array(quiz.length).fill(null));
       setScore(0);
-      setCurrentQuizId(null); // ✨ CLAVE: Si se baraja, es un nuevo intento/quiz, limpiar el ID
+      setCurrentQuizId(null); // CLAVE: Si se baraja, es un nuevo intento/quiz, limpiar el ID
       setAppState(AppState.QUIZ);
     }
   };
 
   const handleShowSaved = () => {
     setAppState(AppState.SAVED_QUIZZES);
-    setCurrentQuizId(null); // ✨ CLAVE: Limpiar currentQuizId al ir a ver guardados
+    setCurrentQuizId(null); // CLAVE: Limpiar currentQuizId al ir a ver guardados (se establece al cargar uno de allí)
   }
   const handleShowPrivacy = () => setAppState(AppState.PRIVACY);
 
-  // ✨ MODIFICACIÓN: handleViewSavedQuiz para manejar is_completed y currentQuizId
+  // MODIFICACIÓN: handleViewSavedQuiz para manejar is_completed y currentQuizId
   const handleViewSavedQuiz = (savedQuiz: SavedQuiz) => {
     setQuiz(savedQuiz.questions);
     setScore(savedQuiz.score);
     setUserAnswers(savedQuiz.userAnswers);
-    setCurrentQuizId(savedQuiz.id); // ✨ CLAVE: Establecer el ID del quiz cargado
+    setCurrentQuizId(savedQuiz.id); // CLAVE: Establecer el ID del quiz cargado
 
     if (savedQuiz.is_completed) {
       setAppState(AppState.RESULTS); // Si está completado, ir directamente a resultados
@@ -315,7 +316,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           title="Ir a la página principal"
         >
           <LightbulbIcon className="w-10 h-10 text-yellow-300" />
-          <h1 className="text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-purple-400">
+          <h1 className="3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-purple-400">
             QUIZZMAKER
           </h1>
         </button>

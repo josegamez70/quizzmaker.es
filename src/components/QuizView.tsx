@@ -33,15 +33,13 @@ const QuizView: React.FC<QuizViewProps> = ({
 
   const currentQuestion = questions[currentQuestionIndex];
 
-  // ✨ useEffect para inicializar userAnswers y score cuando las preguntas o props iniciales cambian
+  // useEffect para inicializar userAnswers y score cuando las preguntas o props iniciales cambian
   useEffect(() => {
-    // Si las preguntas cambian (ej. se carga un quiz nuevo o guardado),
-    // reinicializamos los estados del quiz local.
     setUserAnswers(initialUserAnswers);
     setScore(initialScore);
 
     const firstUnanswered = initialUserAnswers.findIndex(answer => answer === null);
-    const startIndex = firstUnanswered !== -1 ? firstUnanswered : 0; // Si todas respondidas, ir a la primera
+    const startIndex = firstUnanswered !== -1 ? firstUnanswered : 0;
 
     setCurrentQuestionIndex(startIndex);
     setSelectedAnswer(initialUserAnswers[startIndex]);
@@ -83,6 +81,14 @@ const QuizView: React.FC<QuizViewProps> = ({
 
     setSelectedAnswer(option);
     setIsAnswered(true);
+
+    // ✨ AÑADE ESTOS CONSOLE.LOGS PARA DEPURACIÓN
+    console.log("Opción seleccionada:", option);
+    console.log("Respuesta correcta esperada (currentQuestion.answer):", currentQuestion.answer);
+    console.log("¿Coinciden (estricto)?", option === currentQuestion.answer);
+    console.log("¿Coinciden (trim y lowercase)?", option.trim().toLowerCase() === currentQuestion.answer.trim().toLowerCase());
+
+
     // Usamos currentQuestion.answer como estaba en tu código original
     if (option === currentQuestion.answer) {
       setScore(prev => prev + 1);
@@ -103,7 +109,7 @@ const QuizView: React.FC<QuizViewProps> = ({
     return 'bg-gray-700 opacity-50';
   };
 
-  // ✨ NUEVA FUNCIÓN para el botón "Guardar" (simplificada para delegar INSERT/UPDATE a App.tsx)
+  // NUEVA FUNCIÓN para el botón "Guardar" (simplificada para delegar INSERT/UPDATE a App.tsx)
   const handleSaveClick = async () => {
     // Llama a la función del padre para guardar o actualizar.
     // App.tsx se encargará de si es un INSERT o un UPDATE basándose en currentQuizId.
@@ -150,7 +156,7 @@ const QuizView: React.FC<QuizViewProps> = ({
         </div>
       )}
 
-      {/* ✨ Botón Guardar centralizado */}
+      {/* Botón Guardar centralizado */}
       <div className="flex justify-center items-center mt-6">
           <button
               onClick={handleSaveClick}
