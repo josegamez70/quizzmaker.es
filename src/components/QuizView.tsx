@@ -6,10 +6,11 @@ interface QuizViewProps {
   questions: Question[];
   onFinish: (score: number, answers: (string | null)[], quizId: string | null) => void;
   onRestart: () => void;
+  // MODIFICADO: onSaveInProgress ahora acepta el ID que QuizView conoce.
   onSaveInProgress: (quiz: Question[], userAnswers: (string | null)[], currentScore: number, quizIdToSave: string | null) => void;
   initialUserAnswers: (string | null)[];
   initialScore: number;
-  currentQuizId: string | null;
+  currentQuizId: string | null; // Recibimos el currentQuizId de App.tsx como prop
   isPro: boolean;
   attempts: number;
 }
@@ -21,7 +22,7 @@ const QuizView: React.FC<QuizViewProps> = ({
   onSaveInProgress,
   initialUserAnswers,
   initialScore,
-  currentQuizId: propCurrentQuizId, // Renombramos el prop para evitar conflicto con el estado local
+  currentQuizId: propCurrentQuizId, // Renombramos el prop para usarlo directamente
   isPro,
   attempts,
 }) => {
@@ -30,20 +31,10 @@ const QuizView: React.FC<QuizViewProps> = ({
   const [userAnswers, setUserAnswers] = useState<(string | null)[]>(initialUserAnswers);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
-  const [localQuizId, setLocalQuizId] = useState<string | null>(propCurrentQuizId); // Estado local para el ID
+  // ✨ ELIMINADO: const [localQuizId, setLocalQuizId] = useState<string | null>(propCurrentQuizId);
+  // ✨ ELIMINADO: el useEffect asociado a localQuizId
 
   const currentQuestion = questions[currentQuestionIndex];
-
-  // ✨ useEffect para inicializar localQuizId con el prop cuando cambia
-  useEffect(() => {
-    console.log("QuizView: propCurrentQuizId cambió:", propCurrentQuizId); // ✨ Log para depuración
-    // Solo actualizar si el prop es diferente del estado local actual para evitar bucles.
-    // También, importante, si el prop cambia de null a un ID, queremos que se actualice.
-    if (propCurrentQuizId !== localQuizId) {
-        setLocalQuizId(propCurrentQuizId);
-        console.log("QuizView: localQuizId actualizado a:", propCurrentQuizId);
-    }
-  }, [propCurrentQuizId, localQuizId]); // localQuizId como dependencia aquí es para que se vuelva a ejecutar si lo cambiamos internamente
 
   // useEffect para inicializar userAnswers y score cuando las preguntas o props iniciales cambian
   useEffect(() => {
@@ -77,12 +68,13 @@ const QuizView: React.FC<QuizViewProps> = ({
           setSelectedAnswer(null);
           setIsAnswered(false);
         } else {
-          onFinish(score, userAnswers, localQuizId); // USAR localQuizId al finalizar
+          // ✨ USAR propCurrentQuizId directamente
+          onFinish(score, userAnswers, propCurrentQuizId); 
         }
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [isAnswered, currentQuestionIndex, questions.length, score, onFinish, userAnswers, localQuizId]);
+  }, [isAnswered, currentQuestionIndex, questions.length, score, onFinish, userAnswers, propCurrentQuizId]); // ✨ Dependencia propCurrentQuizId
 
   const handleAnswerSelect = (option: string) => {
     if (isAnswered) return;
@@ -124,8 +116,9 @@ const QuizView: React.FC<QuizViewProps> = ({
   };
 
   const handleSaveClick = async () => {
-    // Pasamos localQuizId a onSaveInProgress
-    await onSaveInProgress(questions, userAnswers, score, localQuizId);
+    // ✨ USAR propCurrentQuizId directamente
+    console.log("QuizView: Llamando onSaveInProgress con propCurrentQuizId:", propCurrentQuizId); // ✨ Log para depuración
+    await onSaveInProgress(questions, userAnswers, score, propCurrentQuizId);
   };
 
   if (!currentQuestion) {
