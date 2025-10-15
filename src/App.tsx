@@ -100,16 +100,15 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     }
   };
 
-  // ✨ MODIFICACIÓN: handleSaveQuizInProgress ahora acepta un quizId para decidir INSERT/UPDATE
   const handleSaveQuizInProgress = useCallback(async (currentQuiz: Question[], currentAnswers: (string | null)[], currentScore: number, quizIdToSave: string | null) => {
-    console.log("Guardando quiz. currentQuizId recibido:", quizIdToSave); // ✨ Log para depuración
+    console.log("App.tsx: Guardando quiz. currentQuizId recibido:", quizIdToSave); // ✨ Log para depuración
     try {
       if (!userId) {
         alert('Debes iniciar sesión para guardar cuestionarios.');
         return;
       }
 
-      if (quizIdToSave) { // Si se recibe un ID, actualizamos
+      if (quizIdToSave) {
         const { error } = await supabase.from('quizzes').update({
           questions_data: currentQuiz,
           user_answers_data: currentAnswers,
@@ -121,7 +120,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
 
         if (error) throw error;
         alert('Cuestionario actualizado exitosamente.');
-      } else { // Si no se recibe ID, insertamos uno nuevo
+      } else {
         const { data, error } = await supabase.from('quizzes').insert({
           user_id: userId,
           questions_data: currentQuiz,
@@ -142,7 +141,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
       console.error("Error saving quiz in progress:", message);
       alert(`Error al guardar: ${message}`);
     }
-  }, [userId]); // currentQuizId no es una dependencia aquí, ya que se recibe como arg.
+  }, [userId]);
 
 
   const handleQuizGeneration = useCallback(async () => {
@@ -168,7 +167,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           setQuiz(shuffleArray(questions));
           setUserAnswers(Array(questions.length).fill(null));
           setScore(0);
-          setCurrentQuizId(null); // CLAVE: Limpiar el ID al generar uno nuevo
+          setCurrentQuizId(null);
           setAppState(AppState.QUIZ);
         } else {
           throw new Error('No se pudieron generar preguntas. Intenta con un archivo diferente.');
@@ -182,7 +181,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           setQuiz(shuffleArray(questions));
           setUserAnswers(Array(questions.length).fill(null));
           setScore(0);
-          setCurrentQuizId(null); // CLAVE: Limpiar el ID al generar uno nuevo
+          setCurrentQuizId(null);
           setAppState(AppState.QUIZ);
         } else {
           throw new Error('No se pudieron generar preguntas. Intenta con un archivo diferente.');
@@ -203,7 +202,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     setScore(finalScore);
     setUserAnswers(finalAnswers);
     setAppState(AppState.RESULTS);
-    setCurrentQuizId(null); // CLAVE: Limpiar el ID al finalizarlo
+    setCurrentQuizId(null);
 
     try {
       if (userId) {
@@ -240,7 +239,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     setUserAnswers([]);
     setError('');
     setNumQuestions(10);
-    setCurrentQuizId(null); // CLAVE: Limpiar el ID al reiniciar
+    setCurrentQuizId(null);
   };
 
   const handleReshuffle = () => {
@@ -248,14 +247,14 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
       setQuiz(shuffleArray(quiz));
       setUserAnswers(Array(quiz.length).fill(null));
       setScore(0);
-      setCurrentQuizId(null); // CLAVE: Si se baraja, es un nuevo intento/quiz, limpiar el ID
+      setCurrentQuizId(null);
       setAppState(AppState.QUIZ);
     }
   };
 
   const handleShowSaved = () => {
     setAppState(AppState.SAVED_QUIZZES);
-    setCurrentQuizId(null); // CLAVE: Limpiar currentQuizId al ir a ver guardados
+    setCurrentQuizId(null);
   }
   const handleShowPrivacy = () => setAppState(AppState.PRIVACY);
 
@@ -284,7 +283,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           onSaveInProgress={handleSaveQuizInProgress}
           initialUserAnswers={userAnswers}
           initialScore={score}
-          currentQuizId={currentQuizId} // PASAMOS EL ID DEL QUIZ A QUIZVIEW
+          currentQuizId={currentQuizId}
           isPro={profile?.is_pro || false}
           attempts={profile?.quiz_attempts || 0}
         />
@@ -355,7 +354,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = true);
 
   useEffect(() => {
     const handleInitialSession = async () => {

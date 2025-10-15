@@ -6,11 +6,10 @@ interface QuizViewProps {
   questions: Question[];
   onFinish: (score: number, answers: (string | null)[], quizId: string | null) => void;
   onRestart: () => void;
-  // ✨ MODIFICADO: onSaveInProgress ahora acepta el ID que QuizView conoce.
   onSaveInProgress: (quiz: Question[], userAnswers: (string | null)[], currentScore: number, quizIdToSave: string | null) => void;
   initialUserAnswers: (string | null)[];
   initialScore: number;
-  currentQuizId: string | null; // Recibimos el currentQuizId de App.tsx como prop
+  currentQuizId: string | null;
   isPro: boolean;
   attempts: number;
 }
@@ -31,15 +30,20 @@ const QuizView: React.FC<QuizViewProps> = ({
   const [userAnswers, setUserAnswers] = useState<(string | null)[]>(initialUserAnswers);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
-  // ✨ NUEVO ESTADO: Un estado local para el ID del quiz dentro de QuizView
-  const [localQuizId, setLocalQuizId] = useState<string | null>(propCurrentQuizId);
+  const [localQuizId, setLocalQuizId] = useState<string | null>(propCurrentQuizId); // Estado local para el ID
 
   const currentQuestion = questions[currentQuestionIndex];
 
   // ✨ useEffect para inicializar localQuizId con el prop cuando cambia
   useEffect(() => {
-    setLocalQuizId(propCurrentQuizId);
-  }, [propCurrentQuizId]); // Se ejecuta cada vez que propCurrentQuizId cambia
+    console.log("QuizView: propCurrentQuizId cambió:", propCurrentQuizId); // ✨ Log para depuración
+    // Solo actualizar si el prop es diferente del estado local actual para evitar bucles.
+    // También, importante, si el prop cambia de null a un ID, queremos que se actualice.
+    if (propCurrentQuizId !== localQuizId) {
+        setLocalQuizId(propCurrentQuizId);
+        console.log("QuizView: localQuizId actualizado a:", propCurrentQuizId);
+    }
+  }, [propCurrentQuizId, localQuizId]); // localQuizId como dependencia aquí es para que se vuelva a ejecutar si lo cambiamos internamente
 
   // useEffect para inicializar userAnswers y score cuando las preguntas o props iniciales cambian
   useEffect(() => {
@@ -73,12 +77,12 @@ const QuizView: React.FC<QuizViewProps> = ({
           setSelectedAnswer(null);
           setIsAnswered(false);
         } else {
-          onFinish(score, userAnswers, localQuizId); // ✨ USAR localQuizId al finalizar
+          onFinish(score, userAnswers, localQuizId); // USAR localQuizId al finalizar
         }
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [isAnswered, currentQuestionIndex, questions.length, score, onFinish, userAnswers, localQuizId]); // Dependencia localQuizId
+  }, [isAnswered, currentQuestionIndex, questions.length, score, onFinish, userAnswers, localQuizId]);
 
   const handleAnswerSelect = (option: string) => {
     if (isAnswered) return;
@@ -120,7 +124,7 @@ const QuizView: React.FC<QuizViewProps> = ({
   };
 
   const handleSaveClick = async () => {
-    // ✨ Pasamos localQuizId a onSaveInProgress
+    // Pasamos localQuizId a onSaveInProgress
     await onSaveInProgress(questions, userAnswers, score, localQuizId);
   };
 
@@ -157,32 +161,4 @@ const QuizView: React.FC<QuizViewProps> = ({
         ))}
       </div>
 
-      {isAnswered && selectedAnswer?.trim().toLowerCase() !== currentQuestion.answer.trim().toLowerCase() && currentQuestion.context && (
-        <div className="mt-4 p-4 bg-gray-900 rounded-lg border border-gray-700">
-          <p className="text-sm text-gray-400 mb-1">Fragmento del documento:</p>
-          <p className="text-gray-200 text-sm italic">{currentQuestion.context}</p>
-        </div>
-      )}
-
-      {/* Botón Guardar centralizado */}
-      <div className="flex justify-center items-center mt-6">
-          <button
-              onClick={handleSaveClick}
-              className="px-6 py-3 bg-yellow-600 text-white font-semibold rounded-lg hover:bg-yellow-700 transition-colors shadow-lg"
-              title="Guarda tu progreso para continuar más tarde"
-          >
-              Guardar
-          </button>
-      </div>
-
-      <div className="mt-6 h-1 w-full bg-gray-700 rounded-full">
-        <div
-          className="h-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
-          style={{ width: `${((currentQuestionIndex + (isAnswered ? 1 : 0)) / questions.length) * 100}%` }}
-        />
-      </div>
-    </div>
-  );
-};
-
-export default QuizView;
+      {isAnswered && selectedAnswer?.trim().toLowerCase() !== c
