@@ -1,3 +1,4 @@
+// src/components/SavedQuizzesView.tsx
 
 import React, { useState, useEffect } from 'react';
 import { SavedQuiz, Question } from '../types.ts';
@@ -20,9 +21,21 @@ const SavedQuizzesView: React.FC<SavedQuizzesViewProps> = ({ onViewQuiz, onGoHom
       setLoading(true);
       setError(null);
 
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setError('Debes iniciar sesión para ver tus cuestionarios guardados.');
+        setLoading(false);
+        return;
+      }
+
+      // ✨ Ajuste: Traer todos los campos necesarios de la tabla 'quizzes'
       const { data, error } = await supabase
         .from('quizzes')
-        .select('*')
+        .select('id, user_id, created_at, score, total_questions, questions_data, user_answers_data, title, is_completed')
+        .eq('user_id', user.id) // ✨ Filtramos por el usuario actual
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -30,11 +43,14 @@ const SavedQuizzesView: React.FC<SavedQuizzesViewProps> = ({ onViewQuiz, onGoHom
       } else if (data) {
         const formattedQuizzes: SavedQuiz[] = data.map(q => ({
           id: q.id,
-          date: q.created_at,
+          user_id: q.user_id, // ✨ Mapear user_id
+          title: q.title || `Cuestionario del ${new Date(q.created_at).toLocaleDateString()}`, // ✨ Mapear title, con fallback
           score: q.score,
-          totalQuestions: q.total_questions,
-          questions: q.questions_data as unknown as Question[],
-          userAnswers: q.user_answers_data as unknown as (string | null)[],
+          questions: q.questions_data as Question[], // Asumiendo que questions_data es compatible con Question[]
+          userAnswers: q.user_answers_data as (string | null)[], // Asumiendo que user_answers_data es compatible con (string | null)[]
+          created_at: q.created_at, // ✨ Mapear created_at
+          is_completed: q.is_completed, // ✨ Mapear is_completed
+          // total_questions ya no es un campo directo en SavedQuiz, podemos obtenerlo de questions.length si es necesario
         }));
         setSavedQuizzes(formattedQuizzes);
       }
@@ -61,22 +77,25 @@ const SavedQuizzesView: React.FC<SavedQuizzesViewProps> = ({ onViewQuiz, onGoHom
             </div>
         );
     }
-    
+
     return (
         <ul className="space-y-4">
             {savedQuizzes.map((quiz) => (
                 <li key={quiz.id} className="bg-gray-900 p-4 rounded-lg border border-gray-700/50 hover:border-indigo-500 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex-grow">
-                        <p className="font-semibold text-white">Cuestionario del {new Date(quiz.date).toLocaleString()}</p>
+                        {/* ✨ Usar el nuevo campo 'title' */}
+                        <p className="font-semibold text-white">{quiz.title}</p>
                         <p className="text-sm text-gray-400 mt-1">
-                            Puntuación: <span className="font-bold text-indigo-400">{quiz.score} / {quiz.totalQuestions}</span>
+                            Puntuación: <span className="font-bold text-indigo-400">{quiz.score} / {quiz.questions.length}</span> {/* ✨ Usar quiz.questions.length */}
+                            {quiz.is_completed ? ' (Completado)' : ' (En progreso)'} {/* ✨ Mostrar estado de completado */}
                         </p>
+                        <p className="text-xs text-gray-500">Guardado el {new Date(quiz.created_at).toLocaleString()}</p> {/* ✨ Mostrar fecha de guardado */}
                     </div>
                     <button
                         onClick={() => onViewQuiz(quiz)}
                         className="px-4 py-2 w-full sm:w-auto bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors text-sm flex-shrink-0"
                     >
-                        Ver Resultados
+                        {quiz.is_completed ? 'Ver Resultados' : 'Continuar Cuestionario'} {/* ✨ Texto del botón dinámico */}
                     </button>
                 </li>
             ))}
