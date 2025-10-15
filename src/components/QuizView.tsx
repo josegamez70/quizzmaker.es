@@ -6,10 +6,11 @@ interface QuizViewProps {
   questions: Question[];
   onFinish: (score: number, answers: (string | null)[], quizId: string | null) => void;
   onRestart: () => void;
-  onSaveInProgress: (quiz: Question[], userAnswers: (string | null)[], currentScore: number, quizIdToSave: string | null) => void; // ✨ MODIFICADO
+  // ✨ MODIFICADO: onSaveInProgress ahora acepta el ID que QuizView conoce.
+  onSaveInProgress: (quiz: Question[], userAnswers: (string | null)[], currentScore: number, quizIdToSave: string | null) => void;
   initialUserAnswers: (string | null)[];
   initialScore: number;
-  currentQuizId: string | null;
+  currentQuizId: string | null; // Recibimos el currentQuizId de App.tsx como prop
   isPro: boolean;
   attempts: number;
 }
@@ -21,7 +22,7 @@ const QuizView: React.FC<QuizViewProps> = ({
   onSaveInProgress,
   initialUserAnswers,
   initialScore,
-  currentQuizId, // Recibimos el currentQuizId de App.tsx
+  currentQuizId: propCurrentQuizId, // Renombramos el prop para evitar conflicto con el estado local
   isPro,
   attempts,
 }) => {
@@ -30,8 +31,15 @@ const QuizView: React.FC<QuizViewProps> = ({
   const [userAnswers, setUserAnswers] = useState<(string | null)[]>(initialUserAnswers);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
+  // ✨ NUEVO ESTADO: Un estado local para el ID del quiz dentro de QuizView
+  const [localQuizId, setLocalQuizId] = useState<string | null>(propCurrentQuizId);
 
   const currentQuestion = questions[currentQuestionIndex];
+
+  // ✨ useEffect para inicializar localQuizId con el prop cuando cambia
+  useEffect(() => {
+    setLocalQuizId(propCurrentQuizId);
+  }, [propCurrentQuizId]); // Se ejecuta cada vez que propCurrentQuizId cambia
 
   // useEffect para inicializar userAnswers y score cuando las preguntas o props iniciales cambian
   useEffect(() => {
@@ -65,12 +73,12 @@ const QuizView: React.FC<QuizViewProps> = ({
           setSelectedAnswer(null);
           setIsAnswered(false);
         } else {
-          onFinish(score, userAnswers, currentQuizId); // PASAMOS currentQuizId al finalizar
+          onFinish(score, userAnswers, localQuizId); // ✨ USAR localQuizId al finalizar
         }
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [isAnswered, currentQuestionIndex, questions.length, score, onFinish, userAnswers, currentQuizId]);
+  }, [isAnswered, currentQuestionIndex, questions.length, score, onFinish, userAnswers, localQuizId]); // Dependencia localQuizId
 
   const handleAnswerSelect = (option: string) => {
     if (isAnswered) return;
@@ -82,17 +90,17 @@ const QuizView: React.FC<QuizViewProps> = ({
     setSelectedAnswer(option);
     setIsAnswered(true);
 
-    // ✨ COMPROBACIÓN DE RESPUESTA MÁS ROBUSTA
+    // COMPROBACIÓN DE RESPUESTA MÁS ROBUSTA
     const isOptionCorrect = option.trim().toLowerCase() === currentQuestion.answer.trim().toLowerCase();
     
-    // ✨ AÑADE ESTOS CONSOLE.LOGS PARA DEPURACIÓN
+    // AÑADE ESTOS CONSOLE.LOGS PARA DEPURACIÓN
     console.log("Opción seleccionada:", option);
     console.log("Respuesta correcta esperada (currentQuestion.answer):", currentQuestion.answer);
     console.log("¿Coinciden (estricto)?", option === currentQuestion.answer);
     console.log("¿Coinciden (trim y lowercase)?", isOptionCorrect);
 
 
-    if (isOptionCorrect) { // ✨ Usamos la comparación robusta
+    if (isOptionCorrect) {
       setScore(prev => prev + 1);
     }
   };
@@ -101,7 +109,7 @@ const QuizView: React.FC<QuizViewProps> = ({
     if (!isAnswered) {
       return 'bg-gray-700 hover:bg-gray-600';
     }
-    // ✨ Usamos la comparación robusta para determinar la corrección
+    // Usamos la comparación robusta para determinar la corrección
     const isCorrect = option.trim().toLowerCase() === currentQuestion.answer.trim().toLowerCase();
     const isSelected = option === selectedAnswer;
 
@@ -112,8 +120,8 @@ const QuizView: React.FC<QuizViewProps> = ({
   };
 
   const handleSaveClick = async () => {
-    // ✨ Pasamos el currentQuizId a onSaveInProgress
-    await onSaveInProgress(questions, userAnswers, score, currentQuizId);
+    // ✨ Pasamos localQuizId a onSaveInProgress
+    await onSaveInProgress(questions, userAnswers, score, localQuizId);
   };
 
   if (!currentQuestion) {
