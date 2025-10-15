@@ -4,114 +4,116 @@ import { CheckCircleIcon, XCircleIcon, HomeIcon } from './icons.tsx';
 
 interface QuizViewProps {
   questions: Question[];
-  onFinish: (score: number, userAnswers: (string | null)[]) => void;
+  onFinish: (score: number, answers: (string | null)[]) => void;
   onRestart: () => void;
-  onSaveInProgress: (quiz: Question[], userAnswers: (string | null)[]) => void; // ✨ NUEVO PROP
-  userAnswers: (string | null)[]; // ✨ PASAMOS EL ESTADO DE RESPUESTAS DESDE App.tsx
-  setUserAnswers: React.Dispatch<React.SetStateAction<(string | null)[]>>; // ✨ PASAMOS EL SETTER DESDE App.tsx
-  // Eliminados isPro y attempts, ya que la lógica de redirección se gestiona en App.tsx
+  onSaveInProgress: (quiz: Question[], userAnswers: (string | null)[], currentScore: number) => void; // ✨ NUEVO PROP
+  initialUserAnswers: (string | null)[]; // ✨ NUEVO PROP para inicializar
+  initialScore: number; // ✨ NUEVO PROP para inicializar
+  isPro: boolean;
+  attempts: number;
 }
 
 const QuizView: React.FC<QuizViewProps> = ({
   questions,
   onFinish,
   onRestart,
-  onSaveInProgress,
-  userAnswers,
-  setUserAnswers,
+  onSaveInProgress, // ✨ Desestructuramos el nuevo prop
+  initialUserAnswers, // ✨ Desestructuramos para inicializar
+  initialScore, // ✨ Desestructuramos para inicializar
+  isPro,
+  attempts,
 }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [score, setScore] = useState(initialScore); // ✨ Inicializa con initialScore
+  const [userAnswers, setUserAnswers] = useState<(string | null)[]>(initialUserAnswers); // ✨ Inicializa con initialUserAnswers
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-  const [isAnswered, setIsAnswered] = useState(false); // Indica si la pregunta actual ha sido respondida
+  const [isAnswered, setIsAnswered] = useState(false);
 
   const currentQuestion = questions[currentQuestionIndex];
 
+  // ✨ useEffect para inicializar userAnswers y score cuando las preguntas o props iniciales cambian
   useEffect(() => {
-    // Si se carga un cuestionario guardado, restaurar el índice a la primera pregunta sin responder
-    // o al final si todas están respondidas.
-    const firstUnansweredIndex = userAnswers.findIndex(answer => answer === null);
-    if (firstUnansweredIndex !== -1 && currentQuestionIndex !== firstUnansweredIndex) {
-      setCurrentQuestionIndex(firstUnansweredIndex);
-    } else if (firstUnansweredIndex === -1 && currentQuestionIndex !== questions.length - 1) {
-      // Si todas están respondidas, ir a la última o manejar según se prefiera
-      setCurrentQuestionIndex(questions.length - 1);
+    // Si las preguntas cambian (ej. se carga un quiz nuevo o guardado),
+    // y los initialUserAnswers son diferentes (ej. no son todos null),
+    // o si el número de preguntas es diferente.
+    if (initialUserAnswers.length !== questions.length || initialUserAnswers.some(a => a !== null) || initialScore !== 0) {
+        setUserAnswers(initialUserAnswers);
+        setScore(initialScore);
+        // Buscar la primera pregunta sin respuesta para establecer el índice
+        const firstUnanswered = initialUserAnswers.findIndex(answer => answer === null);
+        setCurrentQuestionIndex(firstUnanswered !== -1 ? firstUnanswered : questions.length - 1);
+        setSelectedAnswer(initialUserAnswers[firstUnanswered !== -1 ? firstUnanswered : questions.length - 1]);
+        setIsAnswered(initialUserAnswers[firstUnanswered !== -1 ? firstUnanswered : questions.length - 1] !== null);
+    } else {
+        // Para un quiz completamente nuevo, asegurar que los estados estén limpios
+        setUserAnswers(Array(questions.length).fill(null));
+        setScore(0);
+        setCurrentQuestionIndex(0);
+        setSelectedAnswer(null);
+        setIsAnswered(false);
     }
+  }, [questions, initialUserAnswers, initialScore]);
 
-    // Asegurarse de que el selectedAnswer refleje la respuesta guardada si existe
-    setSelectedAnswer(userAnswers[currentQuestionIndex]);
-    setIsAnswered(userAnswers[currentQuestionIndex] !== null);
 
-  }, [questions, userAnswers, currentQuestionIndex]); // Dependencias para re-ejecutar el efecto
+  // Tu useEffect original para la lógica de intentos Pro
+  useEffect(() => {
+    if (!isPro && attempts >= 4) {
+      window.location.href = "/api/create-checkout-session";
+      return;
+    }
+  }, [isPro, attempts]);
 
+  // Tu useEffect original para la autoprogressión
+  useEffect(() => {
+    if (isAnswered) {
+      const timer = setTimeout(() => {
+        if (currentQuestionIndex < questions.length - 1) {
+          setCurrentQuestionIndex(prev => prev + 1);
+          setSelectedAnswer(null);
+          setIsAnswered(false);
+        } else {
+          onFinish(score, userAnswers);
+        }
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isAnswered, currentQuestionIndex, questions.length, score, onFinish, userAnswers]);
 
   const handleAnswerSelect = (option: string) => {
-    // Permitir cambiar la respuesta si la pregunta no está "finalizada" (no hay autoprogressión)
-    // o si aún no se ha marcado como respondida
-    if (isAnswered && userAnswers[currentQuestionIndex] === option) return; // Si ya está respondida con la misma opción, no hacer nada
+    if (isAnswered) return;
 
     const newAnswers = [...userAnswers];
     newAnswers[currentQuestionIndex] = option;
-    setUserAnswers(newAnswers); // Actualizamos el estado en App.tsx
+    setUserAnswers(newAnswers);
 
     setSelectedAnswer(option);
-    setIsAnswered(true); // Marca la pregunta como respondida (visualización de colores)
-  };
-
-  const calculateCurrentScore = (): number => {
-    return questions.reduce((acc, question, index) => {
-      // ✨ CAMBIO AQUÍ: Usar question.correctAnswer
-      return acc + (userAnswers[index] === question.correctAnswer ? 1 : 0);
-    }, 0);
-  };
-
-  const goToNextQuestion = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-      setSelectedAnswer(userAnswers[currentQuestionIndex + 1]); // Restaurar la respuesta si ya existía
-      setIsAnswered(userAnswers[currentQuestionIndex + 1] !== null);
+    setIsAnswered(true);
+    // ✨ Usamos currentQuestion.answer como estaba en tu código original
+    if (option === currentQuestion.answer) {
+      setScore(prev => prev + 1);
     }
-  };
-
-  const goToPreviousQuestion = () => {
-    if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prev => prev - 1);
-      setSelectedAnswer(userAnswers[currentQuestionIndex - 1]); // Restaurar la respuesta si ya existía
-      setIsAnswered(userAnswers[currentQuestionIndex - 1] !== null);
-    }
-  };
-
-  const handleSubmitQuiz = () => {
-    const finalScore = calculateCurrentScore();
-    onFinish(finalScore, userAnswers); // Notifica a App.tsx con el score final y todas las respuestas
-  };
-
-  const handleSaveClick = () => {
-    onSaveInProgress(questions, userAnswers); // Llama a la función del padre
   };
 
   const getButtonClass = (option: string) => {
-    const isCorrect = option === currentQuestion.correctAnswer; // ✨ CAMBIO AQUÍ: Usar question.correctAnswer
-    const isSelected = option === userAnswers[currentQuestionIndex]; // Usar userAnswers del estado principal
-
-    if (!isAnswered && isSelected) { // Si aún no se ha "confirmado" la respuesta pero está seleccionada
-      return 'bg-indigo-600 text-white';
+    if (!isAnswered) {
+      // ✨ Usamos currentQuestion.answer como estaba en tu código original
+      return 'bg-gray-700 hover:bg-gray-600';
     }
-    
-    // Si la pregunta ya ha sido respondida (isAnswered es true)
-    if (isAnswered) {
-      if (isCorrect) return 'bg-green-600/80 ring-2 ring-green-400';
-      if (isSelected && !isCorrect) return 'bg-red-600/80 ring-2 ring-red-400';
-      
-      return 'bg-gray-700 opacity-50'; // Opciones no seleccionadas o incorrectas
-    }
+    // ✨ Usamos currentQuestion.answer como estaba en tu código original
+    const isCorrect = option === currentQuestion.answer;
+    const isSelected = option === selectedAnswer;
 
-    // Si la pregunta no ha sido respondida y no hay autoprogressión
-    return 'bg-gray-700 hover:bg-gray-600';
+    if (isCorrect) return 'bg-green-600/80 ring-2 ring-green-400';
+    if (isSelected && !isCorrect) return 'bg-red-600/80 ring-2 ring-red-400';
+
+    return 'bg-gray-700 opacity-50';
   };
 
-  if (!currentQuestion) {
-    return <div className="text-center text-red-500">Error: No se pudo cargar la pregunta.</div>;
-  }
+  // ✨ NUEVA FUNCIÓN para el botón "Guardar"
+  const handleSaveClick = () => {
+    onSaveInProgress(questions, userAnswers, score); // Pasamos el quiz, respuestas y score actuales
+  };
+
 
   return (
     <div className="w-full max-w-3xl p-6 sm:p-8 bg-gray-800 rounded-2xl shadow-2xl animate-fade-in relative">
@@ -131,66 +133,60 @@ const QuizView: React.FC<QuizViewProps> = ({
           <button
             key={index}
             onClick={() => handleAnswerSelect(option)}
-            // Ya no deshabilitamos si está respondida, permitimos cambiar la respuesta antes de pasar a la siguiente
-            // disabled={isAnswered} // Eliminar o ajustar esta línea
+            disabled={isAnswered}
             className={`w-full text-left p-4 rounded-lg text-white font-medium transition-all duration-300 flex items-center justify-between ${getButtonClass(option)}`}
           >
             <span>{option}</span>
-            {/* Solo muestra iconos si la pregunta actual ha sido marcada como respondida */}
-            {isAnswered && option === currentQuestion.correctAnswer && <CheckCircleIcon className="w-6 h-6 text-white" />}
-            {isAnswered && option === userAnswers[currentQuestionIndex] && option !== currentQuestion.correctAnswer && <XCircleIcon className="w-6 h-6 text-white" />}
+            {/* ✨ Usamos currentQuestion.answer como estaba en tu código original */}
+            {isAnswered && option === currentQuestion.answer && <CheckCircleIcon className="w-6 h-6 text-white" />}
+            {isAnswered && option === selectedAnswer && option !== currentQuestion.answer && <XCircleIcon className="w-6 h-6 text-white" />}
           </button>
         ))}
       </div>
 
-      {/* Mostrar contexto solo si la pregunta ha sido respondida y la respuesta fue incorrecta */}
-      {isAnswered && userAnswers[currentQuestionIndex] !== currentQuestion.correctAnswer && currentQuestion.context && (
+      {isAnswered && selectedAnswer !== currentQuestion.answer && currentQuestion.context && (
         <div className="mt-4 p-4 bg-gray-900 rounded-lg border border-gray-700">
           <p className="text-sm text-gray-400 mb-1">Fragmento del documento:</p>
           <p className="text-gray-200 text-sm italic">{currentQuestion.context}</p>
         </div>
       )}
 
-      <div className="mt-6 flex justify-between items-center">
-        <button
-          onClick={goToPreviousQuestion}
+      {/* ✨ Botones de Navegación + Guardar */}
+      <div className="flex justify-between items-center mt-6">
+        {/* Este es el botón "Anterior", pero tu diseño original no lo tenía. Si quieres mantener la autoprogressión sin navegación manual, puedes eliminarlo */}
+        {/* <button
+          onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
           disabled={currentQuestionIndex === 0}
           className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           Anterior
-        </button>
+        </button> */}
 
-        <button
-          onClick={handleSaveClick}
-          className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-500 transition-colors"
-          title="Guarda tu progreso para continuar más tarde"
+        <div className="flex-grow text-center"> {/* Centrar el botón Guardar si no hay "Anterior" o "Siguiente" */}
+            <button
+                onClick={handleSaveClick}
+                className="px-6 py-3 bg-yellow-600 text-white font-semibold rounded-lg hover:bg-yellow-700 transition-colors shadow-lg"
+                title="Guarda tu progreso para continuar más tarde"
+            >
+                Guardar
+            </button>
+        </div>
+
+        {/* El botón "Siguiente" lo gestiona la autoprogressión, pero si quieres uno manual, aquí iría.
+        Para mantener tu lógica de autoprogressión, no necesitas un botón "Siguiente" visible. */}
+        {/* <button
+          onClick={() => setCurrentQuestionIndex(prev => Math.min(questions.length - 1, prev + 1))}
+          disabled={currentQuestionIndex === questions.length - 1}
+          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          Guardar
-        </button>
-
-        {currentQuestionIndex === questions.length - 1 ? (
-          <button
-            onClick={handleSubmitQuiz}
-            disabled={userAnswers[currentQuestionIndex] === null} // Deshabilita si no ha respondido la última pregunta
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Finalizar Cuestionario
-          </button>
-        ) : (
-          <button
-            onClick={goToNextQuestion}
-            disabled={userAnswers[currentQuestionIndex] === null} // Deshabilita si no ha respondido la pregunta actual
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Siguiente
-          </button>
-        )}
+          Siguiente
+        </button> */}
       </div>
 
       <div className="mt-6 h-1 w-full bg-gray-700 rounded-full">
         <div
           className="h-1 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-500"
-          style={{ width: `${((currentQuestionIndex + (userAnswers[currentQuestionIndex] !== null ? 1 : 0)) / questions.length) * 100}%` }}
+          style={{ width: `${((currentQuestionIndex + (isAnswered ? 1 : 0)) / questions.length) * 100}%` }}
         />
       </div>
     </div>

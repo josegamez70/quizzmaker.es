@@ -37,7 +37,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
   const [numQuestions, setNumQuestions] = useState<number>(10);
   const [quiz, setQuiz] = useState<Question[]>([]);
   const [score, setScore] = useState<number>(0);
-  const [userAnswers, setUserAnswers] = useState<(string | null)[]>([]);
+  const [userAnswers, setUserAnswers] = useState<(string | null)[]>([]); // Se mantiene aquí pero QuizView lo gestionará internamente para el guardado.
   const [error, setError] = useState<string>('');
   const [profile, setProfile] = useState<{ username: string; is_pro?: boolean; quiz_attempts?: number } | null>(null);
   const userId = session.user.id;
@@ -100,27 +100,23 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
   };
 
   // ✨ NUEVA FUNCIÓN: Guardar cuestionario en progreso
-  const handleSaveQuizInProgress = useCallback(async (currentQuiz: Question[], currentAnswers: (string | null)[]) => {
+  // Recibe el quiz completo y las respuestas actuales desde QuizView
+  const handleSaveQuizInProgress = useCallback(async (currentQuiz: Question[], currentAnswers: (string | null)[], currentScore: number) => {
     try {
       if (!userId) {
         alert('Debes iniciar sesión para guardar cuestionarios.');
         return;
       }
 
-      const partialScore = currentQuiz.reduce((acc, question, index) => {
-        // ✨ CAMBIO AQUÍ: Usar question.correctAnswer
-        return acc + (currentAnswers[index] === question.correctAnswer ? 1 : 0);
-      }, 0);
-
       const { error } = await supabase.from('quizzes').insert({ // Usamos tu tabla 'quizzes'
         user_id: userId,
         questions_data: currentQuiz, // Mapeado a tu columna 'questions_data'
         user_answers_data: currentAnswers, // Mapeado a tu columna 'user_answers_data'
-        score: partialScore,
+        score: currentScore, // Score actual
         created_at: new Date().toISOString(),
         title: `Cuestionario en progreso (${new Date().toLocaleDateString()})`,
         is_completed: false,
-        total_questions: currentQuiz.length, // Asumiendo que tienes esta columna también
+        total_questions: currentQuiz.length,
       });
 
       if (error) throw error;
@@ -154,8 +150,8 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
         const questions = await generateQuizFromImageAndText(files, numQuestions);
         if (questions && questions.length > 0) {
           setQuiz(shuffleArray(questions));
-          setUserAnswers(Array(questions.length).fill(null));
-          setScore(0);
+          setUserAnswers(Array(questions.length).fill(null)); // Mantener para ResultsView
+          setScore(0); // Mantener para ResultsView
           setAppState(AppState.QUIZ);
         } else {
           throw new Error('No se pudieron generar preguntas. Intenta con un archivo diferente.');
@@ -167,8 +163,8 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
         const questions = await generateQuizFromImageAndText(files, numQuestions);
         if (questions && questions.length > 0) {
           setQuiz(shuffleArray(questions));
-          setUserAnswers(Array(questions.length).fill(null));
-          setScore(0);
+          setUserAnswers(Array(questions.length).fill(null)); // Mantener para ResultsView
+          setScore(0); // Mantener para ResultsView
           setAppState(AppState.QUIZ);
         } else {
           throw new Error('No se pudieron generar preguntas. Intenta con un archivo diferente.');
@@ -191,6 +187,9 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     setAppState(AppState.RESULTS);
 
     // ✨ OPCIONAL: Guardar el cuestionario completado en la base de datos
+    // Este bloque de código está diseñado para guardar el quiz automáticamente al finalizar.
+    // Si quieres que el usuario use el botón "Guardar" también para los quizzes finalizados,
+    // o si esto ya lo manejaba ResultsView, puedes ajustar o eliminar este bloque.
     try {
       if (userId) {
         const { error } = await supabase.from('quizzes').insert({
@@ -234,11 +233,38 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
   const handleShowPrivacy = () => setAppState(AppState.PRIVACY);
   const handleViewSavedQuiz = (savedQuiz: SavedQuiz) => {
     setQuiz(savedQuiz.questions);
-    setScore(savedQuiz.score);
-    setUserAnswers(savedQuiz.userAnswers);
-    // ✨ CAMBIO AQUÍ: Si un quiz guardado no está completo, vuelve a la vista QUIZ para continuarlo
-    setAppState(savedQuiz.is_completed ? AppState.RESULTS : AppState.QUIZ);
+    // ✨ No seteamos score y userAnswers directamente de savedQuiz si queremos que QuizView original lo gestione
+    // setScore(savedQuiz.score);
+    // setUserAnswers(savedQuiz.userAnswers);
+
+    // ✨ CAMBIO: Para cargar un quiz guardado y que QuizView lo continúe,
+    // necesitamos inicializar los estados de QuizView con los datos guardados.
+    // Pasaremos el quiz, y QuizView restaurará sus propios userAnswers y score.
+    // Sin embargo, para que funcione el 'Ver Resultados' de SavedQuizzesView que apunta a AppState.RESULTS,
+    // App.tsx sí necesita tener una copia de userAnswers y score.
+    // Por lo tanto, estableceremos estos aquí para que ResultsView los muestre correctamente,
+    // pero QuizView aún usará sus estados internos (o necesitaría ser modificado para aceptar estos como props iniciales).
+
+    // Para mantener QuizView lo más similar posible al original,
+    // cargaremos el quiz guardado, y QuizView se encargará de inicializar sus estados.
+    // El score y userAnswers guardados en App.tsx solo se usarán si el quiz está "completado"
+    // y se pasa directamente a ResultsView.
+
+    if (savedQuiz.is_completed) {
+      setScore(savedQuiz.score);
+      setUserAnswers(savedQuiz.userAnswers);
+      setAppState(AppState.RESULTS);
+    } else {
+      // Si el quiz está en progreso, App.tsx solo carga el `quiz` (preguntas).
+      // `QuizView` recibirá estas preguntas y, a través de nuevos props,
+      // inicializará sus estados `userAnswers` y `score` con los del `savedQuiz`.
+      // Esto significa que QuizView sí necesitará recibir `userAnswers` y `score` para inicializarse.
+      setScore(savedQuiz.score); // También pasamos el score parcial
+      setUserAnswers(savedQuiz.userAnswers); // También pasamos las respuestas parciales
+      setAppState(AppState.QUIZ);
+    }
   };
+
 
   const renderContent = () => {
     switch (appState) {
@@ -249,13 +275,10 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           onFinish={handleQuizFinish}
           onRestart={handleRestart}
           onSaveInProgress={handleSaveQuizInProgress} // ✨ NUEVO PROP
-          userAnswers={userAnswers} // ✨ PASAR PROP
-          setUserAnswers={setUserAnswers} // ✨ PASAR PROP
-          // Los props isPro y attempts ya no son necesarios aquí si QuizView solo gestiona la UI del cuestionario
-          // Y la lógica de intentos se gestiona antes de entrar a QuizView.
-          // Si los quieres para otra lógica visual, deberías pasarlos desde el profile aquí.
-          // isPro={profile?.is_pro || false}
-          // attempts={profile?.quiz_attempts || 0}
+          initialUserAnswers={userAnswers} // ✨ NUEVO PROP para inicializar QuizView
+          initialScore={score} // ✨ NUEVO PROP para inicializar QuizView
+          isPro={profile?.is_pro || false} // Prop original
+          attempts={profile?.quiz_attempts || 0} // Prop original
         />
       );
       case AppState.RESULTS: return <ResultsView score={score} questions={quiz} userAnswers={userAnswers} onRestart={handleRestart} onReshuffle={handleReshuffle} user={session.user} />;
@@ -327,9 +350,12 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  // Eliminamos authEvent aquí porque App.tsx ya no lo gestionará para PASSWORD_RECOVERY
+  // const [authEvent, setAuthEvent] = useState<AuthChangeEvent | null>(null); 
 
   useEffect(() => {
     const handleInitialSession = async () => {
+      // Obtenemos la sesión inicial. No necesitamos 'event' aquí ya que la ruta /update-password lo maneja.
       const { data: { session: initialSession } } = await supabase.auth.getSession();
       setSession(initialSession);
       setLoading(false);
@@ -337,28 +363,40 @@ export function App() {
 
     handleInitialSession();
 
+    // El onAuthStateChange sigue siendo importante para otros eventos (SIGNED_IN, SIGNED_OUT)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       console.log("Auth State Change detected in App.tsx:", _event, currentSession);
       setSession(currentSession);
       setLoading(false);
+      // Opcional: Si por alguna razón el usuario llega a App.tsx con un evento PASSWORD_RECOVERY
+      // y no ha pasado por la ruta dedicada, podrías forzar la redirección aquí.
+      // Pero lo ideal es que el `redirectTo` en LoginView ya los dirija correctamente.
+      // if (_event === 'PASSWORD_RECOVERY' && window.location.pathname !== '/update-password') {
+      //   window.location.href = '/update-password';
+      // }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const forceLogout = () => {
-    setSession(null);
+  const forceLogout = () => { 
+    setSession(null); 
+    // Al hacer logout, limpiamos el hash de la URL si existe (ej. #access_token=...)
     window.history.replaceState({}, document.title, window.location.pathname);
   };
+  // handlePasswordUpdated ya no es necesario aquí, ya que UpdatePasswordView redirige directamente
+  // const handlePasswordUpdated = () => forceLogout(); 
 
   if (loading) {
     return (<div className="min-h-screen bg-gray-900 flex items-center justify-center"><Loader text="Cargando sesión..." /></div>);
   }
 
+  // Debugging log
   console.log("Rendering App with:", { session });
 
   return (
     <Suspense fallback={<div className="min-h-screen bg-gray-900 flex items-center justify-center"><Loader text="Cargando..." /></div>}>
+      {/* App.tsx ahora solo se encarga de mostrar la MainApp o AuthView */}
       {session ? (
         <MainApp session={session} forceLogout={forceLogout} />
       ) : (

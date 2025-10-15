@@ -50,7 +50,6 @@ const SavedQuizzesView: React.FC<SavedQuizzesViewProps> = ({ onViewQuiz, onGoHom
           userAnswers: q.user_answers_data as (string | null)[], // Asumiendo que user_answers_data es compatible con (string | null)[]
           created_at: q.created_at, // ✨ Mapear created_at
           is_completed: q.is_completed, // ✨ Mapear is_completed
-          // total_questions ya no es un campo directo en SavedQuiz, podemos obtenerlo de questions.length si es necesario
         }));
         setSavedQuizzes(formattedQuizzes);
       }
