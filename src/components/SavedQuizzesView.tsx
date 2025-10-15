@@ -31,11 +31,10 @@ const SavedQuizzesView: React.FC<SavedQuizzesViewProps> = ({ onViewQuiz, onGoHom
         return;
       }
 
-      // ✨ Ajuste: Traer todos los campos necesarios de la tabla 'quizzes'
       const { data, error } = await supabase
         .from('quizzes')
         .select('id, user_id, created_at, score, total_questions, questions_data, user_answers_data, title, is_completed')
-        .eq('user_id', user.id) // ✨ Filtramos por el usuario actual
+        .eq('user_id', user.id) // Filtramos por el usuario actual
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -43,13 +42,13 @@ const SavedQuizzesView: React.FC<SavedQuizzesViewProps> = ({ onViewQuiz, onGoHom
       } else if (data) {
         const formattedQuizzes: SavedQuiz[] = data.map(q => ({
           id: q.id,
-          user_id: q.user_id, // ✨ Mapear user_id
-          title: q.title || `Cuestionario del ${new Date(q.created_at).toLocaleDateString()}`, // ✨ Mapear title, con fallback
+          user_id: q.user_id,
+          title: q.title || `Cuestionario del ${new Date(q.created_at).toLocaleDateString()}`,
           score: q.score,
-          questions: q.questions_data as Question[], // Asumiendo que questions_data es compatible con Question[]
-          userAnswers: q.user_answers_data as (string | null)[], // Asumiendo que user_answers_data es compatible con (string | null)[]
-          created_at: q.created_at, // ✨ Mapear created_at
-          is_completed: q.is_completed, // ✨ Mapear is_completed
+          questions: q.questions_data as Question[],
+          userAnswers: q.user_answers_data as (string | null)[],
+          created_at: q.created_at,
+          is_completed: q.is_completed,
         }));
         setSavedQuizzes(formattedQuizzes);
       }
@@ -82,19 +81,18 @@ const SavedQuizzesView: React.FC<SavedQuizzesViewProps> = ({ onViewQuiz, onGoHom
             {savedQuizzes.map((quiz) => (
                 <li key={quiz.id} className="bg-gray-900 p-4 rounded-lg border border-gray-700/50 hover:border-indigo-500 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex-grow">
-                        {/* ✨ Usar el nuevo campo 'title' */}
                         <p className="font-semibold text-white">{quiz.title}</p>
                         <p className="text-sm text-gray-400 mt-1">
-                            Puntuación: <span className="font-bold text-indigo-400">{quiz.score} / {quiz.questions.length}</span> {/* ✨ Usar quiz.questions.length */}
-                            {quiz.is_completed ? ' (Completado)' : ' (En progreso)'} {/* ✨ Mostrar estado de completado */}
+                            Puntuación: <span className="font-bold text-indigo-400">{quiz.score} / {quiz.questions.length}</span>
+                            {quiz.is_completed ? ' (Completado)' : ' (En progreso)'}
                         </p>
-                        <p className="text-xs text-gray-500">Guardado el {new Date(quiz.created_at).toLocaleString()}</p> {/* ✨ Mostrar fecha de guardado */}
+                        <p className="text-xs text-gray-500">Guardado el {new Date(quiz.created_at).toLocaleString()}</p>
                     </div>
                     <button
                         onClick={() => onViewQuiz(quiz)}
                         className="px-4 py-2 w-full sm:w-auto bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors text-sm flex-shrink-0"
                     >
-                        {quiz.is_completed ? 'Ver Resultados' : 'Continuar Cuestionario'} {/* ✨ Texto del botón dinámico */}
+                        {quiz.is_completed ? 'Ver Resultados' : 'Continuar Cuestionario'}
                     </button>
                 </li>
             ))}

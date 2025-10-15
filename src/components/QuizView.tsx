@@ -4,11 +4,12 @@ import { CheckCircleIcon, XCircleIcon, HomeIcon } from './icons.tsx';
 
 interface QuizViewProps {
   questions: Question[];
-  onFinish: (score: number, answers: (string | null)[]) => void;
+  onFinish: (score: number, answers: (string | null)[], quizId: string | null) => void; // ✨ MODIFICADO: onFinish ahora acepta quizId
   onRestart: () => void;
   onSaveInProgress: (quiz: Question[], userAnswers: (string | null)[], currentScore: number) => void; // ✨ NUEVO PROP
   initialUserAnswers: (string | null)[]; // ✨ NUEVO PROP para inicializar
   initialScore: number; // ✨ NUEVO PROP para inicializar
+  currentQuizId: string | null; // ✨ NUEVO PROP: ID del quiz actual
   isPro: boolean;
   attempts: number;
 }
@@ -17,9 +18,10 @@ const QuizView: React.FC<QuizViewProps> = ({
   questions,
   onFinish,
   onRestart,
-  onSaveInProgress, // ✨ Desestructuramos el nuevo prop
-  initialUserAnswers, // ✨ Desestructuramos para inicializar
-  initialScore, // ✨ Desestructuramos para inicializar
+  onSaveInProgress,
+  initialUserAnswers,
+  initialScore,
+  currentQuizId,
   isPro,
   attempts,
 }) => {
@@ -34,25 +36,18 @@ const QuizView: React.FC<QuizViewProps> = ({
   // ✨ useEffect para inicializar userAnswers y score cuando las preguntas o props iniciales cambian
   useEffect(() => {
     // Si las preguntas cambian (ej. se carga un quiz nuevo o guardado),
-    // y los initialUserAnswers son diferentes (ej. no son todos null),
-    // o si el número de preguntas es diferente.
-    if (initialUserAnswers.length !== questions.length || initialUserAnswers.some(a => a !== null) || initialScore !== 0) {
-        setUserAnswers(initialUserAnswers);
-        setScore(initialScore);
-        // Buscar la primera pregunta sin respuesta para establecer el índice
-        const firstUnanswered = initialUserAnswers.findIndex(answer => answer === null);
-        setCurrentQuestionIndex(firstUnanswered !== -1 ? firstUnanswered : questions.length - 1);
-        setSelectedAnswer(initialUserAnswers[firstUnanswered !== -1 ? firstUnanswered : questions.length - 1]);
-        setIsAnswered(initialUserAnswers[firstUnanswered !== -1 ? firstUnanswered : questions.length - 1] !== null);
-    } else {
-        // Para un quiz completamente nuevo, asegurar que los estados estén limpios
-        setUserAnswers(Array(questions.length).fill(null));
-        setScore(0);
-        setCurrentQuestionIndex(0);
-        setSelectedAnswer(null);
-        setIsAnswered(false);
-    }
-  }, [questions, initialUserAnswers, initialScore]);
+    // reinicializamos los estados del quiz local.
+    setUserAnswers(initialUserAnswers);
+    setScore(initialScore);
+
+    const firstUnanswered = initialUserAnswers.findIndex(answer => answer === null);
+    const startIndex = firstUnanswered !== -1 ? firstUnanswered : 0; // Si todas respondidas, ir a la primera
+
+    setCurrentQuestionIndex(startIndex);
+    setSelectedAnswer(initialUserAnswers[startIndex]);
+    setIsAnswered(initialUserAnswers[startIndex] !== null);
+
+  }, [questions, initialUserAnswers, initialScore]); // Dependencias para re-ejecutar el efecto
 
 
   // Tu useEffect original para la lógica de intentos Pro
@@ -72,12 +67,12 @@ const QuizView: React.FC<QuizViewProps> = ({
           setSelectedAnswer(null);
           setIsAnswered(false);
         } else {
-          onFinish(score, userAnswers);
+          onFinish(score, userAnswers, currentQuizId); // ✨ PASAMOS currentQuizId al finalizar
         }
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [isAnswered, currentQuestionIndex, questions.length, score, onFinish, userAnswers]);
+  }, [isAnswered, currentQuestionIndex, questions.length, score, onFinish, userAnswers, currentQuizId]); // Añadir currentQuizId a las dependencias
 
   const handleAnswerSelect = (option: string) => {
     if (isAnswered) return;
@@ -88,7 +83,7 @@ const QuizView: React.FC<QuizViewProps> = ({
 
     setSelectedAnswer(option);
     setIsAnswered(true);
-    // ✨ Usamos currentQuestion.answer como estaba en tu código original
+    // Usamos currentQuestion.answer como estaba en tu código original
     if (option === currentQuestion.answer) {
       setScore(prev => prev + 1);
     }
@@ -96,10 +91,9 @@ const QuizView: React.FC<QuizViewProps> = ({
 
   const getButtonClass = (option: string) => {
     if (!isAnswered) {
-      // ✨ Usamos currentQuestion.answer como estaba en tu código original
       return 'bg-gray-700 hover:bg-gray-600';
     }
-    // ✨ Usamos currentQuestion.answer como estaba en tu código original
+    // Usamos currentQuestion.answer como estaba en tu código original
     const isCorrect = option === currentQuestion.answer;
     const isSelected = option === selectedAnswer;
 
@@ -109,11 +103,16 @@ const QuizView: React.FC<QuizViewProps> = ({
     return 'bg-gray-700 opacity-50';
   };
 
-  // ✨ NUEVA FUNCIÓN para el botón "Guardar"
-  const handleSaveClick = () => {
-    onSaveInProgress(questions, userAnswers, score); // Pasamos el quiz, respuestas y score actuales
+  // ✨ NUEVA FUNCIÓN para el botón "Guardar" (simplificada para delegar INSERT/UPDATE a App.tsx)
+  const handleSaveClick = async () => {
+    // Llama a la función del padre para guardar o actualizar.
+    // App.tsx se encargará de si es un INSERT o un UPDATE basándose en currentQuizId.
+    await onSaveInProgress(questions, userAnswers, score);
   };
 
+  if (!currentQuestion) {
+    return <div className="text-center text-red-500">Error: No se pudo cargar la pregunta.</div>;
+  }
 
   return (
     <div className="w-full max-w-3xl p-6 sm:p-8 bg-gray-800 rounded-2xl shadow-2xl animate-fade-in relative">
@@ -137,7 +136,7 @@ const QuizView: React.FC<QuizViewProps> = ({
             className={`w-full text-left p-4 rounded-lg text-white font-medium transition-all duration-300 flex items-center justify-between ${getButtonClass(option)}`}
           >
             <span>{option}</span>
-            {/* ✨ Usamos currentQuestion.answer como estaba en tu código original */}
+            {/* Usamos currentQuestion.answer como estaba en tu código original */}
             {isAnswered && option === currentQuestion.answer && <CheckCircleIcon className="w-6 h-6 text-white" />}
             {isAnswered && option === selectedAnswer && option !== currentQuestion.answer && <XCircleIcon className="w-6 h-6 text-white" />}
           </button>
@@ -151,36 +150,15 @@ const QuizView: React.FC<QuizViewProps> = ({
         </div>
       )}
 
-      {/* ✨ Botones de Navegación + Guardar */}
-      <div className="flex justify-between items-center mt-6">
-        {/* Este es el botón "Anterior", pero tu diseño original no lo tenía. Si quieres mantener la autoprogressión sin navegación manual, puedes eliminarlo */}
-        {/* <button
-          onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
-          disabled={currentQuestionIndex === 0}
-          className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          Anterior
-        </button> */}
-
-        <div className="flex-grow text-center"> {/* Centrar el botón Guardar si no hay "Anterior" o "Siguiente" */}
-            <button
-                onClick={handleSaveClick}
-                className="px-6 py-3 bg-yellow-600 text-white font-semibold rounded-lg hover:bg-yellow-700 transition-colors shadow-lg"
-                title="Guarda tu progreso para continuar más tarde"
-            >
-                Guardar
-            </button>
-        </div>
-
-        {/* El botón "Siguiente" lo gestiona la autoprogressión, pero si quieres uno manual, aquí iría.
-        Para mantener tu lógica de autoprogressión, no necesitas un botón "Siguiente" visible. */}
-        {/* <button
-          onClick={() => setCurrentQuestionIndex(prev => Math.min(questions.length - 1, prev + 1))}
-          disabled={currentQuestionIndex === questions.length - 1}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          Siguiente
-        </button> */}
+      {/* ✨ Botón Guardar centralizado */}
+      <div className="flex justify-center items-center mt-6">
+          <button
+              onClick={handleSaveClick}
+              className="px-6 py-3 bg-yellow-600 text-white font-semibold rounded-lg hover:bg-yellow-700 transition-colors shadow-lg"
+              title="Guarda tu progreso para continuar más tarde"
+          >
+              Guardar
+          </button>
       </div>
 
       <div className="mt-6 h-1 w-full bg-gray-700 rounded-full">
