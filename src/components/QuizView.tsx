@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'; // Agregamos useCallback
+import React, { useState, useEffect, useCallback } from 'react';
 import { Question } from '../types.ts';
 import { CheckCircleIcon, XCircleIcon, HomeIcon } from './icons.tsx';
 
@@ -30,9 +30,7 @@ const QuizView: React.FC<QuizViewProps> = ({
   const [userAnswers, setUserAnswers] = useState<(string | null)[]>(initialUserAnswers);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
-  // ✨ ELIMINADO: const [localQuizId, setLocalQuizId] = useState<string | null>(propCurrentQuizId);
-  // ✨ ELIMINADO: el useEffect asociado a localQuizId
-
+  
   const currentQuestion = questions[currentQuestionIndex];
 
   // LOG PARA VER SI EL PROP CAMBIA EN QuizView
@@ -73,13 +71,12 @@ const QuizView: React.FC<QuizViewProps> = ({
           setSelectedAnswer(null);
           setIsAnswered(false);
         } else {
-          // ✨ USAR currentQuizId directamente del prop
           onFinish(score, userAnswers, currentQuizId); 
         }
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [isAnswered, currentQuestionIndex, questions.length, score, onFinish, userAnswers, currentQuizId]); // ✨ Dependencia currentQuizId
+  }, [isAnswered, currentQuestionIndex, questions.length, score, onFinish, userAnswers, currentQuizId]);
 
   const handleAnswerSelect = (option: string) => {
     if (isAnswered) return;
@@ -117,12 +114,10 @@ const QuizView: React.FC<QuizViewProps> = ({
     return 'bg-gray-700 opacity-50';
   };
 
-  // ✨ Envuelve handleSaveClick en useCallback para asegurar que se recrea solo cuando sus dependencias cambian.
   const handleSaveClick = useCallback(async () => {
-    // ✨ USAR currentQuizId directamente del prop
-    console.log("QuizView: Llamando onSaveInProgress con prop 'currentQuizId':", currentQuizId); // ✨ Log para depuración
+    console.log("QuizView: Llamando onSaveInProgress con prop 'currentQuizId':", currentQuizId);
     await onSaveInProgress(questions, userAnswers, score, currentQuizId);
-  }, [onSaveInProgress, questions, userAnswers, score, currentQuizId]); // ✨ Añadir currentQuizId como dependencia
+  }, [onSaveInProgress, questions, userAnswers, score, currentQuizId]);
 
 
   if (!currentQuestion) {

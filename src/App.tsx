@@ -29,6 +29,8 @@ const FreeAttemptsExceededView = lazy(() => import('./components/FreeAttemptsExc
 interface MainAppProps {
   session: Session;
   forceLogout: () => void;
+  // Añadir una key aquí si quieres forzar el re-montaje de MainApp en la App principal
+  // key?: string; // NO NECESARIO AQUÍ SI App ENVUELVE MainApp
 }
 
 const MainApp = ({ session, forceLogout }: MainAppProps) => {
@@ -42,6 +44,12 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
   const [error, setError] = useState<string>('');
   const [profile, setProfile] = useState<{ username: string; is_pro?: boolean; quiz_attempts?: number } | null>(null);
   const userId = session.user.id;
+
+  // LOG PARA VER currentQuizId EN MainApp CADA VEZ QUE CAMBIA
+  useEffect(() => {
+    console.log("MainApp: currentQuizId actualizado a:", currentQuizId);
+  }, [currentQuizId]);
+
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -101,7 +109,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
   };
 
   const handleSaveQuizInProgress = useCallback(async (currentQuiz: Question[], currentAnswers: (string | null)[], currentScore: number, quizIdToSave: string | null) => {
-    console.log("App.tsx: Guardando quiz. currentQuizId recibido:", quizIdToSave); // ✨ Log para depuración
+    console.log("App.tsx: Guardando quiz. currentQuizId recibido de QuizView:", quizIdToSave); // Log para depuración
     try {
       if (!userId) {
         alert('Debes iniciar sesión para guardar cuestionarios.');
@@ -141,7 +149,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
       console.error("Error saving quiz in progress:", message);
       alert(`Error al guardar: ${message}`);
     }
-  }, [userId]);
+  }, [userId, setCurrentQuizId]); // setCurrentQuizId como dependencia para asegurar useCallback siempre tiene la última versión. currentQuizId no es una dependencia porque se recibe como argumento.
 
 
   const handleQuizGeneration = useCallback(async () => {
@@ -167,7 +175,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           setQuiz(shuffleArray(questions));
           setUserAnswers(Array(questions.length).fill(null));
           setScore(0);
-          setCurrentQuizId(null);
+          setCurrentQuizId(null); // CLAVE: Limpiar el ID al generar uno nuevo
           setAppState(AppState.QUIZ);
         } else {
           throw new Error('No se pudieron generar preguntas. Intenta con un archivo diferente.');
@@ -181,7 +189,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           setQuiz(shuffleArray(questions));
           setUserAnswers(Array(questions.length).fill(null));
           setScore(0);
-          setCurrentQuizId(null);
+          setCurrentQuizId(null); // CLAVE: Limpiar el ID al generar uno nuevo
           setAppState(AppState.QUIZ);
         } else {
           throw new Error('No se pudieron generar preguntas. Intenta con un archivo diferente.');
@@ -202,7 +210,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     setScore(finalScore);
     setUserAnswers(finalAnswers);
     setAppState(AppState.RESULTS);
-    setCurrentQuizId(null);
+    setCurrentQuizId(null); // CLAVE: Limpiar el ID al finalizarlo
 
     try {
       if (userId) {
@@ -239,7 +247,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     setUserAnswers([]);
     setError('');
     setNumQuestions(10);
-    setCurrentQuizId(null);
+    setCurrentQuizId(null); // CLAVE: Limpiar el ID al reiniciar
   };
 
   const handleReshuffle = () => {
@@ -247,14 +255,14 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
       setQuiz(shuffleArray(quiz));
       setUserAnswers(Array(quiz.length).fill(null));
       setScore(0);
-      setCurrentQuizId(null);
+      setCurrentQuizId(null); // CLAVE: Si se baraja, es un nuevo intento/quiz, limpiar el ID
       setAppState(AppState.QUIZ);
     }
   };
 
   const handleShowSaved = () => {
     setAppState(AppState.SAVED_QUIZZES);
-    setCurrentQuizId(null);
+    setCurrentQuizId(null); // CLAVE: Limpiar currentQuizId al ir a ver guardados
   }
   const handleShowPrivacy = () => setAppState(AppState.PRIVACY);
 
@@ -273,28 +281,30 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
 
 
   const renderContent = () => {
-    switch (appState) {
-      case AppState.GENERATING: return <Loader text="Generando tu cuestionario..." />;
-      case AppState.QUIZ: return (
-        <QuizView
-          questions={quiz}
-          onFinish={handleQuizFinish}
-          onRestart={handleRestart}
-          onSaveInProgress={handleSaveQuizInProgress}
-          initialUserAnswers={userAnswers}
-          initialScore={score}
-          currentQuizId={currentQuizId}
-          isPro={profile?.is_pro || false}
-          attempts={profile?.quiz_attempts || 0}
-        />
-      );
-      case AppState.RESULTS: return <ResultsView score={score} questions={quiz} userAnswers={userAnswers} onRestart={handleRestart} onReshuffle={handleReshuffle} user={session.user} />;
-      case AppState.ERROR: return (<div className="text-center p-8 bg-gray-800 rounded-lg"><h2 className="text-2xl font-bold text-red-500 mb-4">¡Oops! Algo salió mal</h2><p className="text-gray-300 mb-6">{error}</p><button onClick={handleRestart} className="px-6 py-2 bg-indigo-600">Intentar de Nuevo</button></div>);
-      case AppState.SAVED_QUIZZES: return <SavedQuizzesView onViewQuiz={handleViewSavedQuiz} onGoHome={handleRestart} />;
-      case AppState.PRIVACY: return <PrivacyPolicyView onGoBack={handleRestart} />;
-      case AppState.LIMIT_REACHED: return <FreeAttemptsExceededView onGoPro={handleGoPro} onGoHome={handleRestart} />;
-      case AppState.IDLE: default: return (<ImageUploader onFilesSelect={setFiles} onSubmit={handleQuizGeneration} numQuestions={numQuestions} onNumQuestionsChange={setNumQuestions} />);
-    }
+    return (
+      <Suspense fallback={<Loader text="Cargando vista..." />}>
+        {appState === AppState.GENERATING && <Loader text="Generando tu cuestionario..." />}
+        {appState === AppState.QUIZ && (
+          <QuizView
+            questions={quiz}
+            onFinish={handleQuizFinish}
+            onRestart={handleRestart}
+            onSaveInProgress={handleSaveQuizInProgress}
+            initialUserAnswers={userAnswers}
+            initialScore={score}
+            currentQuizId={currentQuizId} // PASAMOS EL ID DEL QUIZ A QUIZVIEW
+            isPro={profile?.is_pro || false}
+            attempts={profile?.quiz_attempts || 0}
+          />
+        )}
+        {appState === AppState.RESULTS && <ResultsView score={score} questions={quiz} userAnswers={userAnswers} onRestart={handleRestart} onReshuffle={handleReshuffle} user={session.user} />}
+        {appState === AppState.ERROR && (<div className="text-center p-8 bg-gray-800 rounded-lg"><h2 className="text-2xl font-bold text-red-500 mb-4">¡Oops! Algo salió mal</h2><p className="text-gray-300 mb-6">{error}</p><button onClick={handleRestart} className="px-6 py-2 bg-indigo-600">Intentar de Nuevo</button></div>)}
+        {appState === AppState.SAVED_QUIZZES && <SavedQuizzesView onViewQuiz={handleViewSavedQuiz} onGoHome={handleRestart} />}
+        {appState === AppState.PRIVACY && <PrivacyPolicyView onGoBack={handleRestart} />}
+        {appState === AppState.LIMIT_REACHED && <FreeAttemptsExceededView onGoPro={handleGoPro} onGoHome={handleRestart} />}
+        {appState === AppState.IDLE && (<ImageUploader onFilesSelect={setFiles} onSubmit={handleQuizGeneration} numQuestions={numQuestions} onNumQuestionsChange={setNumQuestions} />)}
+      </Suspense>
+    );
   };
 
   return (
@@ -339,7 +349,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
       </p>
 
       <main className="w-full max-w-4xl mx-auto flex-grow flex items-center justify-center print:block">
-        <Suspense fallback={<Loader text="Cargando vista..." />}>{renderContent()}</Suspense>
+        {renderContent()} {/* Ya no hay Suspense aquí, se movió dentro */}
       </main>
 
       <footer className="w-full max-w-4xl mx-auto mt-6 pt-4 text-center text-gray-500 text-sm border-t border-gray-700/50 print:hidden">
@@ -354,7 +364,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
- const [loading, setLoading] = useState(true); // <<-- CORRECCIÓN AQUÍ
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const handleInitialSession = async () => {
