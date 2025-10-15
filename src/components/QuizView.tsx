@@ -4,12 +4,12 @@ import { CheckCircleIcon, XCircleIcon, HomeIcon } from './icons.tsx';
 
 interface QuizViewProps {
   questions: Question[];
-  onFinish: (score: number, answers: (string | null)[], quizId: string | null) => void; // ✨ MODIFICADO: onFinish ahora acepta quizId
+  onFinish: (score: number, answers: (string | null)[], quizId: string | null) => void;
   onRestart: () => void;
-  onSaveInProgress: (quiz: Question[], userAnswers: (string | null)[], currentScore: number) => void; // ✨ NUEVO PROP
-  initialUserAnswers: (string | null)[]; // ✨ NUEVO PROP para inicializar
-  initialScore: number; // ✨ NUEVO PROP para inicializar
-  currentQuizId: string | null; // ✨ NUEVO PROP: ID del quiz actual
+  onSaveInProgress: (quiz: Question[], userAnswers: (string | null)[], currentScore: number) => void;
+  initialUserAnswers: (string | null)[];
+  initialScore: number;
+  currentQuizId: string | null;
   isPro: boolean;
   attempts: number;
 }
@@ -26,8 +26,8 @@ const QuizView: React.FC<QuizViewProps> = ({
   attempts,
 }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [score, setScore] = useState(initialScore); // ✨ Inicializa con initialScore
-  const [userAnswers, setUserAnswers] = useState<(string | null)[]>(initialUserAnswers); // ✨ Inicializa con initialUserAnswers
+  const [score, setScore] = useState(initialScore);
+  const [userAnswers, setUserAnswers] = useState<(string | null)[]>(initialUserAnswers);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
 
@@ -47,7 +47,7 @@ const QuizView: React.FC<QuizViewProps> = ({
     setSelectedAnswer(initialUserAnswers[startIndex]);
     setIsAnswered(initialUserAnswers[startIndex] !== null);
 
-  }, [questions, initialUserAnswers, initialScore]); // Dependencias para re-ejecutar el efecto
+  }, [questions, initialUserAnswers, initialScore]);
 
 
   // Tu useEffect original para la lógica de intentos Pro
@@ -67,12 +67,12 @@ const QuizView: React.FC<QuizViewProps> = ({
           setSelectedAnswer(null);
           setIsAnswered(false);
         } else {
-          onFinish(score, userAnswers, currentQuizId); // ✨ PASAMOS currentQuizId al finalizar
+          onFinish(score, userAnswers, currentQuizId); // PASAMOS currentQuizId al finalizar
         }
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [isAnswered, currentQuestionIndex, questions.length, score, onFinish, userAnswers, currentQuizId]); // Añadir currentQuizId a las dependencias
+  }, [isAnswered, currentQuestionIndex, questions.length, score, onFinish, userAnswers, currentQuizId]);
 
   const handleAnswerSelect = (option: string) => {
     if (isAnswered) return;
