@@ -6,7 +6,7 @@ interface QuizViewProps {
   questions: Question[];
   onFinish: (score: number, answers: (string | null)[], quizId: string | null) => void;
   onRestart: () => void;
-  onSaveInProgress: (quiz: Question[], userAnswers: (string | null)[], currentScore: number) => void;
+  onSaveInProgress: (quiz: Question[], userAnswers: (string | null)[], currentScore: number, quizIdToSave: string | null) => void; // ✨ MODIFICADO
   initialUserAnswers: (string | null)[];
   initialScore: number;
   currentQuizId: string | null;
@@ -21,7 +21,7 @@ const QuizView: React.FC<QuizViewProps> = ({
   onSaveInProgress,
   initialUserAnswers,
   initialScore,
-  currentQuizId,
+  currentQuizId, // Recibimos el currentQuizId de App.tsx
   isPro,
   attempts,
 }) => {
@@ -82,15 +82,17 @@ const QuizView: React.FC<QuizViewProps> = ({
     setSelectedAnswer(option);
     setIsAnswered(true);
 
+    // ✨ COMPROBACIÓN DE RESPUESTA MÁS ROBUSTA
+    const isOptionCorrect = option.trim().toLowerCase() === currentQuestion.answer.trim().toLowerCase();
+    
     // ✨ AÑADE ESTOS CONSOLE.LOGS PARA DEPURACIÓN
     console.log("Opción seleccionada:", option);
     console.log("Respuesta correcta esperada (currentQuestion.answer):", currentQuestion.answer);
     console.log("¿Coinciden (estricto)?", option === currentQuestion.answer);
-    console.log("¿Coinciden (trim y lowercase)?", option.trim().toLowerCase() === currentQuestion.answer.trim().toLowerCase());
+    console.log("¿Coinciden (trim y lowercase)?", isOptionCorrect);
 
 
-    // Usamos currentQuestion.answer como estaba en tu código original
-    if (option === currentQuestion.answer) {
+    if (isOptionCorrect) { // ✨ Usamos la comparación robusta
       setScore(prev => prev + 1);
     }
   };
@@ -99,8 +101,8 @@ const QuizView: React.FC<QuizViewProps> = ({
     if (!isAnswered) {
       return 'bg-gray-700 hover:bg-gray-600';
     }
-    // Usamos currentQuestion.answer como estaba en tu código original
-    const isCorrect = option === currentQuestion.answer;
+    // ✨ Usamos la comparación robusta para determinar la corrección
+    const isCorrect = option.trim().toLowerCase() === currentQuestion.answer.trim().toLowerCase();
     const isSelected = option === selectedAnswer;
 
     if (isCorrect) return 'bg-green-600/80 ring-2 ring-green-400';
@@ -109,11 +111,9 @@ const QuizView: React.FC<QuizViewProps> = ({
     return 'bg-gray-700 opacity-50';
   };
 
-  // NUEVA FUNCIÓN para el botón "Guardar" (simplificada para delegar INSERT/UPDATE a App.tsx)
   const handleSaveClick = async () => {
-    // Llama a la función del padre para guardar o actualizar.
-    // App.tsx se encargará de si es un INSERT o un UPDATE basándose en currentQuizId.
-    await onSaveInProgress(questions, userAnswers, score);
+    // ✨ Pasamos el currentQuizId a onSaveInProgress
+    await onSaveInProgress(questions, userAnswers, score, currentQuizId);
   };
 
   if (!currentQuestion) {
@@ -142,14 +142,14 @@ const QuizView: React.FC<QuizViewProps> = ({
             className={`w-full text-left p-4 rounded-lg text-white font-medium transition-all duration-300 flex items-center justify-between ${getButtonClass(option)}`}
           >
             <span>{option}</span>
-            {/* Usamos currentQuestion.answer como estaba en tu código original */}
-            {isAnswered && option === currentQuestion.answer && <CheckCircleIcon className="w-6 h-6 text-white" />}
-            {isAnswered && option === selectedAnswer && option !== currentQuestion.answer && <XCircleIcon className="w-6 h-6 text-white" />}
+            {/* Usamos la comparación robusta para la visualización de iconos */}
+            {isAnswered && option.trim().toLowerCase() === currentQuestion.answer.trim().toLowerCase() && <CheckCircleIcon className="w-6 h-6 text-white" />}
+            {isAnswered && option === selectedAnswer && option.trim().toLowerCase() !== currentQuestion.answer.trim().toLowerCase() && <XCircleIcon className="w-6 h-6 text-white" />}
           </button>
         ))}
       </div>
 
-      {isAnswered && selectedAnswer !== currentQuestion.answer && currentQuestion.context && (
+      {isAnswered && selectedAnswer?.trim().toLowerCase() !== currentQuestion.answer.trim().toLowerCase() && currentQuestion.context && (
         <div className="mt-4 p-4 bg-gray-900 rounded-lg border border-gray-700">
           <p className="text-sm text-gray-400 mb-1">Fragmento del documento:</p>
           <p className="text-gray-200 text-sm italic">{currentQuestion.context}</p>

@@ -103,7 +103,7 @@ const SavedQuizzesView: React.FC<SavedQuizzesViewProps> = ({ onViewQuiz, onGoHom
   return (
     <div className="w-full max-w-4xl p-6 sm:p-8 bg-gray-800 rounded-2xl shadow-2xl animate-fade-in">
         <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
-            <h2 className="3xl font-bold text-white">Mis Cuestionarios</h2>
+            <h2 className="text-3xl font-bold text-white">Mis Cuestionarios</h2>
             <button onClick={onGoHome} className="p-2 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white transition-colors" title="Volver al inicio">
                 <HomeIcon className="w-7 h-7" />
             </button>
