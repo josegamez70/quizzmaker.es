@@ -9,7 +9,7 @@ interface QuizViewProps {
   onSaveInProgress: (quiz: Question[], userAnswers: (string | null)[], currentScore: number, quizIdToSave: string | null) => void;
   initialUserAnswers: (string | null)[];
   initialScore: number;
-  currentQuizId: string | null; // Este prop es CLAVE
+  currentQuizId: string | null;
   isPro: boolean;
   attempts: number;
 }
@@ -21,7 +21,7 @@ const QuizView: React.FC<QuizViewProps> = ({
   onSaveInProgress,
   initialUserAnswers,
   initialScore,
-  currentQuizId, // Usamos el prop directamente, sin renombrar
+  currentQuizId,
   isPro,
   attempts,
 }) => {
@@ -33,13 +33,10 @@ const QuizView: React.FC<QuizViewProps> = ({
   
   const currentQuestion = questions[currentQuestionIndex];
 
-  // LOG PARA VER SI EL PROP CAMBIA EN QuizView
   useEffect(() => {
     console.log("QuizView: Prop 'currentQuizId' recibido:", currentQuizId);
   }, [currentQuizId]);
 
-
-  // useEffect para inicializar userAnswers y score cuando las preguntas o props iniciales cambian
   useEffect(() => {
     setUserAnswers(initialUserAnswers);
     setScore(initialScore);
@@ -53,8 +50,6 @@ const QuizView: React.FC<QuizViewProps> = ({
 
   }, [questions, initialUserAnswers, initialScore]);
 
-
-  // Tu useEffect original para la lógica de intentos Pro
   useEffect(() => {
     if (!isPro && attempts >= 4) {
       window.location.href = "/api/create-checkout-session";
@@ -62,7 +57,6 @@ const QuizView: React.FC<QuizViewProps> = ({
     }
   }, [isPro, attempts]);
 
-  // Tu useEffect original para la autoprogressión
   useEffect(() => {
     if (isAnswered) {
       const timer = setTimeout(() => {
@@ -71,7 +65,7 @@ const QuizView: React.FC<QuizViewProps> = ({
           setSelectedAnswer(null);
           setIsAnswered(false);
         } else {
-          onFinish(score, userAnswers, currentQuizId); 
+          onFinish(score, userAnswers, currentQuizId);
         }
       }, 1500);
       return () => clearTimeout(timer);
@@ -120,6 +114,9 @@ const QuizView: React.FC<QuizViewProps> = ({
   }, [onSaveInProgress, questions, userAnswers, score, currentQuizId]);
 
 
+  // ✨ NUEVA LÓGICA: Deshabilitar el botón "Guardar" si es la última pregunta y ya ha sido respondida
+  const isLastQuestionAnswered = currentQuestionIndex === questions.length - 1 && isAnswered;
+
   if (!currentQuestion) {
     return <div className="text-center text-red-500">Error: No se pudo cargar la pregunta.</div>;
   }
@@ -162,8 +159,11 @@ const QuizView: React.FC<QuizViewProps> = ({
       <div className="flex justify-center items-center mt-6">
           <button
               onClick={handleSaveClick}
-              className="px-6 py-3 bg-yellow-600 text-white font-semibold rounded-lg hover:bg-yellow-700 transition-colors shadow-lg"
-              title="Guarda tu progreso para continuar más tarde"
+              // ✨ NUEVO: Deshabilitar el botón si es la última pregunta y ya se ha respondido
+              disabled={isLastQuestionAnswered}
+              className={`px-6 py-3 font-semibold rounded-lg transition-colors shadow-lg
+                ${isLastQuestionAnswered ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-yellow-600 text-white hover:bg-yellow-700'}`}
+              title={isLastQuestionAnswered ? "El cuestionario está a punto de finalizar. Se guardará automáticamente." : "Guarda tu progreso para continuar más tarde"}
           >
               Guardar
           </button>
