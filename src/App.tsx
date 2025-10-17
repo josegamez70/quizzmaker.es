@@ -29,8 +29,6 @@ const FreeAttemptsExceededView = lazy(() => import('./components/FreeAttemptsExc
 interface MainAppProps {
   session: Session;
   forceLogout: () => void;
-  // Añadir una key aquí si quieres forzar el re-montaje de MainApp en la App principal
-  // key?: string; // NO NECESARIO AQUÍ SI App ENVUELVE MainApp
 }
 
 const MainApp = ({ session, forceLogout }: MainAppProps) => {
@@ -41,6 +39,8 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
   const [score, setScore] = useState<number>(0);
   const [userAnswers, setUserAnswers] = useState<(string | null)[]>([]);
   const [currentQuizId, setCurrentQuizId] = useState<string | null>(null);
+  // ✨ NUEVO ESTADO: Para saber si el quiz actual ya fue guardado como completado
+  const [isCurrentQuizSavedAsCompleted, setIsCurrentQuizSavedAsCompleted] = useState(false);
   const [error, setError] = useState<string>('');
   const [profile, setProfile] = useState<{ username: string; is_pro?: boolean; quiz_attempts?: number } | null>(null);
   const userId = session.user.id;
@@ -176,6 +176,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           setUserAnswers(Array(questions.length).fill(null));
           setScore(0);
           setCurrentQuizId(null); // CLAVE: Limpiar el ID al generar uno nuevo
+          setIsCurrentQuizSavedAsCompleted(false); // ✨ Reiniciar el estado
           setAppState(AppState.QUIZ);
         } else {
           throw new Error('No se pudieron generar preguntas. Intenta con un archivo diferente.');
@@ -190,6 +191,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           setUserAnswers(Array(questions.length).fill(null));
           setScore(0);
           setCurrentQuizId(null); // CLAVE: Limpiar el ID al generar uno nuevo
+          setIsCurrentQuizSavedAsCompleted(false); // ✨ Reiniciar el estado
           setAppState(AppState.QUIZ);
         } else {
           throw new Error('No se pudieron generar preguntas. Intenta con un archivo diferente.');
@@ -206,11 +208,18 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     }
   }, [files, numQuestions, userId]);
 
-  const handleQuizFinish = async (finalScore: number, finalAnswers: (string | null)[], quizId: string | null = null) => {
+  // ✨ MODIFICACIÓN: handleQuizFinish ahora puede guardar un quiz completado o actualizar uno existente
+  const handleQuizFinish = useCallback(async (finalScore: number, finalAnswers: (string | null)[], quizId: string | null = null) => {
     setScore(finalScore);
     setUserAnswers(finalAnswers);
     setAppState(AppState.RESULTS);
-    setCurrentQuizId(null); // CLAVE: Limpiar el ID al finalizarlo
+    // IMPORTANTE: currentQuizId no se limpia aquí si onSaveResults lo va a usar para actualizar.
+    // Se limpia después del guardado exitoso o en el restart.
+    // setCurrentQuizId(null); // Limpiar el ID al finalizarlo si no hay guardado manual posterior
+
+    // Establecemos que al finalizar, se espera que el quiz esté guardado como completado.
+    // Luego, la función de guardado actualiza esto.
+    setIsCurrentQuizSavedAsCompleted(false); // Asumimos que aún no está "guardado como completado" en este momento
 
     try {
       if (userId) {
@@ -220,24 +229,31 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
           user_answers_data: finalAnswers,
           score: finalScore,
           title: `Cuestionario completado (${new Date().toLocaleDateString()})`,
-          is_completed: true,
+          is_completed: true, // Siempre true al finalizar
           total_questions: quiz.length,
         };
 
         if (quizId) {
+          // Si hay un quizId, actualizamos el quiz existente
           const { error } = await supabase.from('quizzes').update(quizData).eq('id', quizId);
           if (error) throw error;
           console.log(`Cuestionario ${quizId} completado y actualizado.`);
         } else {
+          // Si no hay quizId, insertamos un nuevo quiz completado
           const { error } = await supabase.from('quizzes').insert({ ...quizData, created_at: new Date().toISOString() });
           if (error) throw error;
           console.log("Nuevo cuestionario completado guardado.");
         }
+        setIsCurrentQuizSavedAsCompleted(true); // Confirmamos que se ha guardado como completado
       }
     } catch (error) {
       console.error("Error al guardar/actualizar el cuestionario completado:", error);
+      setIsCurrentQuizSavedAsCompleted(false); // Si hay error, no está guardado como completado
+    } finally {
+        setCurrentQuizId(null); // Ahora sí limpiamos el ID después de la operación de guardado/actualizado
     }
-  };
+  }, [userId, quiz, setCurrentQuizId, setIsCurrentQuizSavedAsCompleted]);
+
 
   const handleRestart = () => {
     setAppState(AppState.IDLE);
@@ -248,6 +264,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
     setError('');
     setNumQuestions(10);
     setCurrentQuizId(null); // CLAVE: Limpiar el ID al reiniciar
+    setIsCurrentQuizSavedAsCompleted(false); // ✨ Reiniciar el estado
   };
 
   const handleReshuffle = () => {
@@ -256,6 +273,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
       setUserAnswers(Array(quiz.length).fill(null));
       setScore(0);
       setCurrentQuizId(null); // CLAVE: Si se baraja, es un nuevo intento/quiz, limpiar el ID
+      setIsCurrentQuizSavedAsCompleted(false); // ✨ Reiniciar el estado
       setAppState(AppState.QUIZ);
     }
   };
@@ -263,6 +281,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
   const handleShowSaved = () => {
     setAppState(AppState.SAVED_QUIZZES);
     setCurrentQuizId(null); // CLAVE: Limpiar currentQuizId al ir a ver guardados
+    setIsCurrentQuizSavedAsCompleted(false); // ✨ Reiniciar el estado
   }
   const handleShowPrivacy = () => setAppState(AppState.PRIVACY);
 
@@ -274,8 +293,10 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
 
     if (savedQuiz.is_completed) {
       setAppState(AppState.RESULTS);
+      setIsCurrentQuizSavedAsCompleted(true); // ✨ Si se carga uno completado, establecerlo a true
     } else {
       setAppState(AppState.QUIZ);
+      setIsCurrentQuizSavedAsCompleted(false); // ✨ Si se carga uno en progreso, establecerlo a false
     }
   };
 
@@ -292,12 +313,26 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
             onSaveInProgress={handleSaveQuizInProgress}
             initialUserAnswers={userAnswers}
             initialScore={score}
-            currentQuizId={currentQuizId} // PASAMOS EL ID DEL QUIZ A QUIZVIEW
+            currentQuizId={currentQuizId}
             isPro={profile?.is_pro || false}
             attempts={profile?.quiz_attempts || 0}
           />
         )}
-        {appState === AppState.RESULTS && <ResultsView score={score} questions={quiz} userAnswers={userAnswers} onRestart={handleRestart} onReshuffle={handleReshuffle} user={session.user} />}
+        {appState === AppState.RESULTS && (
+          <ResultsView
+            score={score}
+            questions={quiz}
+            userAnswers={userAnswers}
+            onRestart={handleRestart}
+            onReshuffle={handleReshuffle}
+            user={session.user}
+            // ✨ PASAR LOS NUEVOS PROPS
+            currentQuizId={currentQuizId} // Podría ser null aquí si se finalizó un quiz nuevo
+            isSavedAsCompleted={isCurrentQuizSavedAsCompleted}
+            // onSaveResults ahora es una prop de ResultsView.tsx
+            onSaveResults={handleQuizFinish} // Reutilizamos handleQuizFinish para guardar (si no está ya guardado)
+          />
+        )}
         {appState === AppState.ERROR && (<div className="text-center p-8 bg-gray-800 rounded-lg"><h2 className="text-2xl font-bold text-red-500 mb-4">¡Oops! Algo salió mal</h2><p className="text-gray-300 mb-6">{error}</p><button onClick={handleRestart} className="px-6 py-2 bg-indigo-600">Intentar de Nuevo</button></div>)}
         {appState === AppState.SAVED_QUIZZES && <SavedQuizzesView onViewQuiz={handleViewSavedQuiz} onGoHome={handleRestart} />}
         {appState === AppState.PRIVACY && <PrivacyPolicyView onGoBack={handleRestart} />}
@@ -349,7 +384,7 @@ const MainApp = ({ session, forceLogout }: MainAppProps) => {
       </p>
 
       <main className="w-full max-w-4xl mx-auto flex-grow flex items-center justify-center print:block">
-        {renderContent()} {/* Ya no hay Suspense aquí, se movió dentro */}
+        {renderContent()}
       </main>
 
       <footer className="w-full max-w-4xl mx-auto mt-6 pt-4 text-center text-gray-500 text-sm border-t border-gray-700/50 print:hidden">
